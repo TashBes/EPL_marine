@@ -255,16 +255,17 @@ EPL classes:
 ######################################################################################
 #### scale protection level based on condition
 #######################################################################################
-cnd <- read.csv(cnd_fl) %>% 
+cnd <- read.csv(list.files(path="data", pattern=cnd_fl, recursive = T, full.names = T)[1]) %>% 
   select(-X)%>% 
   select(-n) %>% 
-  pivot_wider(names_from = condition, values_from = perc) %>% 
+  filter(condition != "NA") %>% 
+  pivot_wider(names_from = condition, values_from = perc)%>% 
   mutate(total = sum(c_across(`1`:`4`), na.rm = T), .by = ecosystem_type) %>% 
   mutate(across(everything(), .fns = ~replace_na(.,0)))
 
 
 eco_mpa_cnd <- cnd %>% 
-  left_join(eco_mpa_pro)%>% 
+  right_join(eco_mpa_pro)%>% 
   #
   #scale each condition percent by its %degradation score 
   #
@@ -293,11 +294,12 @@ write.csv(eco_mpa_cnd, paste0("outputs/pro_level_", year, ".csv"))
 ### assign protected category based on percent protected
 ######################################################################################
 ##read csv's back in
-pro_2023 <- read_csv(paste0("outputs/pro_level_", year, ".csv"))
-
+#pro_2023 <- read_csv(paste0("outputs/pro_level_", year, ".csv"))
+pro_2023 <- eco_mpa_cnd
 
 ## calculate protection based on a threshold for 30% (this was not done in the 2019 assessment) 
 eco_mpa_cnd_2023 <- pro_2023 %>% 
+  mutate(across(everything(), .fns = ~replace_na(.,0))) %>% 
   mutate(
     protection_level_old_30_2023 = case_when(
       percent_protected >= 30 & `1` >= 0.3 ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
@@ -347,179 +349,179 @@ EPL Index calculation (Harris et al in prep)
 
 *Calculate biome level summary of EPL 2024 and calculate EPLI 2024*
 
-```{r}
+<!-- ```{r} -->
 
-#summarise EPL 2024 per biome with adjustments for invasives 
-epl2024inv_sum <- epl2024 %>%
-  group_by(T_BIOME,epl_nat_inv24) %>%
-  summarise(count = n(),.groups = 'drop') %>%
-  pivot_wider(names_from = epl_nat_inv24, 
-              values_from = count, values_fill = 0) %>%
-  relocate(WP, .before = MP)%>%
-  relocate(NP, .after = PP) %>%
-  # Add row-wise TOTAL
-  rowwise() %>%
-  mutate(Total = sum(c_across(where(is.numeric)))) %>%
-  ungroup() %>%
-  # Add TOTAL row (column-wise sums)
-  bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>%
-  # Add EPLindex
-  mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3)) 
+<!-- #summarise EPL 2024 per biome with adjustments for invasives  -->
+<!-- epl2024inv_sum <- epl2024 %>% -->
+<!--   group_by(T_BIOME,epl_nat_inv24) %>% -->
+<!--   summarise(count = n(),.groups = 'drop') %>% -->
+<!--   pivot_wider(names_from = epl_nat_inv24,  -->
+<!--               values_from = count, values_fill = 0) %>% -->
+<!--   relocate(WP, .before = MP)%>% -->
+<!--   relocate(NP, .after = PP) %>% -->
+<!--   # Add row-wise TOTAL -->
+<!--   rowwise() %>% -->
+<!--   mutate(Total = sum(c_across(where(is.numeric)))) %>% -->
+<!--   ungroup() %>% -->
+<!--   # Add TOTAL row (column-wise sums) -->
+<!--   bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>% -->
+<!--   # Add EPLindex -->
+<!--   mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3))  -->
 
-write.csv(epl2024inv_sum, file = "outputs/results_df_EPL_2024_biome_invasives2.csv") #export results 
+<!-- write.csv(epl2024inv_sum, file = "outputs/results_df_EPL_2024_biome_invasives2.csv") #export results  -->
 
-#summarise EPL 2024 per biome without using any adjustments for invasives (similar to NBA 2018)
-epl2024nat_sum <- epl2024 %>%
-    group_by(T_BIOME,epl_nat24) %>%
-  summarise(count = n(),.groups = 'drop') %>%
-  pivot_wider(names_from = epl_nat24, 
-              values_from = count, values_fill = 0) %>%
-  relocate(WP, .before = MP)%>%
-  relocate(NP, .after = PP) %>%
-   # Add row-wise TOTAL
-  rowwise() %>%
-  mutate(Total = sum(c_across(where(is.numeric)))) %>%
-  ungroup() %>%
-  # Add TOTAL row (column-wise sums)
-  bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>%
-  # Add EPLindex
-  mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3)) 
+<!-- #summarise EPL 2024 per biome without using any adjustments for invasives (similar to NBA 2018) -->
+<!-- epl2024nat_sum <- epl2024 %>% -->
+<!--     group_by(T_BIOME,epl_nat24) %>% -->
+<!--   summarise(count = n(),.groups = 'drop') %>% -->
+<!--   pivot_wider(names_from = epl_nat24,  -->
+<!--               values_from = count, values_fill = 0) %>% -->
+<!--   relocate(WP, .before = MP)%>% -->
+<!--   relocate(NP, .after = PP) %>% -->
+<!--    # Add row-wise TOTAL -->
+<!--   rowwise() %>% -->
+<!--   mutate(Total = sum(c_across(where(is.numeric)))) %>% -->
+<!--   ungroup() %>% -->
+<!--   # Add TOTAL row (column-wise sums) -->
+<!--   bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>% -->
+<!--   # Add EPLindex -->
+<!--   mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3))  -->
 
-write.csv(epl2024nat_sum, file = "outputs/results_df_EPL_2024_biome2_natural.csv") #export results 
+<!-- write.csv(epl2024nat_sum, file = "outputs/results_df_EPL_2024_biome2_natural.csv") #export results  -->
 
-```
+<!-- ``` -->
 
-*Calculate biome level summary of EPL 2018 and EPLI 2018*
+<!-- *Calculate biome level summary of EPL 2018 and EPLI 2018* -->
 
-```{r}
+<!-- ```{r} -->
 
-#summarise EPL2018 per biome with adjustments for invasives 
-epl2018inv_sum <- epl2018 %>%
-    group_by(T_BIOME,epl_nat_inv18) %>%
-  summarise(count = n(),.groups = 'drop') %>%
-  pivot_wider(names_from = epl_nat_inv18, 
-              values_from = count, values_fill = 0) %>%
-  relocate(WP, .before = MP)%>%
-  relocate(NP, .after = PP) %>%
-   # Add row-wise TOTAL
-  rowwise() %>%
-  mutate(Total = sum(c_across(where(is.numeric)))) %>%
-  ungroup() %>%
-  # Add TOTAL row (column-wise sums)
-  bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>%
-  # Add EPLindex
-  mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3)) 
+<!-- #summarise EPL2018 per biome with adjustments for invasives  -->
+<!-- epl2018inv_sum <- epl2018 %>% -->
+<!--     group_by(T_BIOME,epl_nat_inv18) %>% -->
+<!--   summarise(count = n(),.groups = 'drop') %>% -->
+<!--   pivot_wider(names_from = epl_nat_inv18,  -->
+<!--               values_from = count, values_fill = 0) %>% -->
+<!--   relocate(WP, .before = MP)%>% -->
+<!--   relocate(NP, .after = PP) %>% -->
+<!--    # Add row-wise TOTAL -->
+<!--   rowwise() %>% -->
+<!--   mutate(Total = sum(c_across(where(is.numeric)))) %>% -->
+<!--   ungroup() %>% -->
+<!--   # Add TOTAL row (column-wise sums) -->
+<!--   bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>% -->
+<!--   # Add EPLindex -->
+<!--   mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3))  -->
 
-write.csv(epl2018inv_sum, file = "outputs/results_df_EPL_2018_biome_invasives2.csv") #export results 
+<!-- write.csv(epl2018inv_sum, file = "outputs/results_df_EPL_2018_biome_invasives2.csv") #export results  -->
 
-#summarise EPL per biome without using any adjustments for invasives (similar to NBA 2018)
-epl2018nat_sum <- epl2018 %>%
-    group_by(T_BIOME,epl_nat18) %>%
-  summarise(count = n(),.groups = 'drop') %>%
-  pivot_wider(names_from = epl_nat18, 
-              values_from = count, values_fill = 0) %>%
-  relocate(WP, .before = MP)%>%
-  relocate(NP, .after = PP) %>%
-   # Add row-wise TOTAL
-  rowwise() %>%
-  mutate(Total = sum(c_across(where(is.numeric)))) %>%
-  ungroup() %>%
-  # Add TOTAL row (column-wise sums)
-  bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>%
-  # Add EPLindex
-  mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3)) 
+<!-- #summarise EPL per biome without using any adjustments for invasives (similar to NBA 2018) -->
+<!-- epl2018nat_sum <- epl2018 %>% -->
+<!--     group_by(T_BIOME,epl_nat18) %>% -->
+<!--   summarise(count = n(),.groups = 'drop') %>% -->
+<!--   pivot_wider(names_from = epl_nat18,  -->
+<!--               values_from = count, values_fill = 0) %>% -->
+<!--   relocate(WP, .before = MP)%>% -->
+<!--   relocate(NP, .after = PP) %>% -->
+<!--    # Add row-wise TOTAL -->
+<!--   rowwise() %>% -->
+<!--   mutate(Total = sum(c_across(where(is.numeric)))) %>% -->
+<!--   ungroup() %>% -->
+<!--   # Add TOTAL row (column-wise sums) -->
+<!--   bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>% -->
+<!--   # Add EPLindex -->
+<!--   mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3))  -->
 
-write.csv(epl2018nat_sum, file = "outputs/results_df_EPL_2018_biome2_natural.csv") #export results 
-```
+<!-- write.csv(epl2018nat_sum, file = "outputs/results_df_EPL_2018_biome2_natural.csv") #export results  -->
+<!-- ``` -->
 
-#### **Make graphs for NBA**
+<!-- #### **Make graphs for NBA** -->
 
-```{r}
-# to avoid rerunning spatial analysis load data from file...
-#data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2024_biome_invasives2.csv")
-#data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2018_biome_invasives2.csv")
+<!-- ```{r} -->
+<!-- # to avoid rerunning spatial analysis load data from file... -->
+<!-- #data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2024_biome_invasives2.csv") -->
+<!-- #data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2018_biome_invasives2.csv") -->
 
-# load nbaR package : first run this in console devtools::install_github("SANBI-NBA/nbaR") 
-library(nbaR)
+<!-- # load nbaR package : first run this in console devtools::install_github("SANBI-NBA/nbaR")  -->
+<!-- library(nbaR) -->
 
-# Use NBA package to make EPL graph (need high res output for booklet)
-EPL <- epl2024inv_sum %>%
-    rename(`Well Protected` = WP, 
-           `Moderately Protected` = MP, 
-           `Poorly Protected` = PP, 
-           `Not Protected` = NP ) # %>%
-  # select(-...1) # required if importing from CSV
- 
-epl24_bar_plot <- nba_plot(EPL,
-                  `T_BIOME`,
-                  2:5,
-                 CHRT = "bar",
-                 NUM = TRUE,
-                 LAB = "Percentage of ecosystem types",
-                SAVE = NULL)
+<!-- # Use NBA package to make EPL graph (need high res output for booklet) -->
+<!-- EPL <- epl2024inv_sum %>% -->
+<!--     rename(`Well Protected` = WP,  -->
+<!--            `Moderately Protected` = MP,  -->
+<!--            `Poorly Protected` = PP,  -->
+<!--            `Not Protected` = NP ) # %>% -->
+<!--   # select(-...1) # required if importing from CSV -->
 
-epl24_bar_plot
+<!-- epl24_bar_plot <- nba_plot(EPL, -->
+<!--                   `T_BIOME`, -->
+<!--                   2:5, -->
+<!--                  CHRT = "bar", -->
+<!--                  NUM = TRUE, -->
+<!--                  LAB = "Percentage of ecosystem types", -->
+<!--                 SAVE = NULL) -->
 
-#export the graph
-ggsave(
-  filename = "outputs/epl24_bar_plot.jpeg", # File name
-  plot = epl24_bar_plot,                   # Plot object
-  device = "jpeg",                        # File format
-  width = 16, height = 12, units = "cm",   # Dimensions
-  dpi = 300                               # Resolution
-)
+<!-- epl24_bar_plot -->
 
-#make a line plot of EPL Index using 2018 and 2014 timepoints - request Natasha to impve this or add to package.
+<!-- #export the graph -->
+<!-- ggsave( -->
+<!--   filename = "outputs/epl24_bar_plot.jpeg", # File name -->
+<!--   plot = epl24_bar_plot,                   # Plot object -->
+<!--   device = "jpeg",                        # File format -->
+<!--   width = 16, height = 12, units = "cm",   # Dimensions -->
+<!--   dpi = 300                               # Resolution -->
+<!-- ) -->
 
-biome_colors <- c(
-  "Albany Thicket" = "darkgreen",
-  "Azonal" = "blue",
-  "Desert" =  "darkgrey",
-  "Forest" =  "darkblue",
-  "Fynbos"  =  "purple",
-  "Grassland"  = "green3",
-  "IOCB"  = "orange",
-  "Nama-Karoo" = "brown1",
-  "Savanna"  =  "brown",
-  "Succulent Karoo"  = "yellow3",
-  "Total" = "black"
-)
+<!-- #make a line plot of EPL Index using 2018 and 2014 timepoints - request Natasha to impve this or add to package. -->
 
-EPLI <- epl2024inv_sum %>%
-  select(T_BIOME, EPLI) %>% 
-  rename(EPLI24 = EPLI) %>%
-   left_join(epl2018inv_sum, by ="T_BIOME") %>%
-   rename(EPLI18 = EPLI) %>%
-   rename(Biome = T_BIOME) %>%
-  select(Biome,EPLI18, EPLI24) %>%
-  pivot_longer(cols = c(2,3), names_to = "Year", values_to = "EPLI") %>%
-    mutate(Year = case_when(
-    Year == "EPLI18" ~ "2018",
-    Year == "EPLI24" ~ "2024",
-    TRUE ~ Year
-  ))
-  
-  epli_line_plot <- ggplot(EPLI, aes(x = Year, y = EPLI, group = Biome, color = Biome)) +
-  scale_color_manual(values = biome_colors) + 
-    geom_line(size = 1.2) +
-  geom_point(size = 2) +
-  theme_minimal() +
-  labs(x = "Year", y = "EPLI") +
-  scale_x_discrete(limits = c("2018", "2024"))
-  
-  epli_line_plot
-  
-  #export the graph
-ggsave(
-  filename = "outputs/epli_line_plot.jpeg", # File name
-  plot = epli_line_plot,                   # Plot object
-  device = "jpeg",                        # File format
-  width = 16, height = 12, units = "cm",   # Dimensions
-  dpi = 300                               # Resolution
-)
-```
+<!-- biome_colors <- c( -->
+<!--   "Albany Thicket" = "darkgreen", -->
+<!--   "Azonal" = "blue", -->
+<!--   "Desert" =  "darkgrey", -->
+<!--   "Forest" =  "darkblue", -->
+<!--   "Fynbos"  =  "purple", -->
+<!--   "Grassland"  = "green3", -->
+<!--   "IOCB"  = "orange", -->
+<!--   "Nama-Karoo" = "brown1", -->
+<!--   "Savanna"  =  "brown", -->
+<!--   "Succulent Karoo"  = "yellow3", -->
+<!--   "Total" = "black" -->
+<!-- ) -->
 
-## References
+<!-- EPLI <- epl2024inv_sum %>% -->
+<!--   select(T_BIOME, EPLI) %>%  -->
+<!--   rename(EPLI24 = EPLI) %>% -->
+<!--    left_join(epl2018inv_sum, by ="T_BIOME") %>% -->
+<!--    rename(EPLI18 = EPLI) %>% -->
+<!--    rename(Biome = T_BIOME) %>% -->
+<!--   select(Biome,EPLI18, EPLI24) %>% -->
+<!--   pivot_longer(cols = c(2,3), names_to = "Year", values_to = "EPLI") %>% -->
+<!--     mutate(Year = case_when( -->
+<!--     Year == "EPLI18" ~ "2018", -->
+<!--     Year == "EPLI24" ~ "2024", -->
+<!--     TRUE ~ Year -->
+<!--   )) -->
 
-::: {#refs}
-:::
+<!--   epli_line_plot <- ggplot(EPLI, aes(x = Year, y = EPLI, group = Biome, color = Biome)) + -->
+<!--   scale_color_manual(values = biome_colors) +  -->
+<!--     geom_line(size = 1.2) + -->
+<!--   geom_point(size = 2) + -->
+<!--   theme_minimal() + -->
+<!--   labs(x = "Year", y = "EPLI") + -->
+<!--   scale_x_discrete(limits = c("2018", "2024")) -->
+
+<!--   epli_line_plot -->
+
+<!--   #export the graph -->
+<!-- ggsave( -->
+<!--   filename = "outputs/epli_line_plot.jpeg", # File name -->
+<!--   plot = epli_line_plot,                   # Plot object -->
+<!--   device = "jpeg",                        # File format -->
+<!--   width = 16, height = 12, units = "cm",   # Dimensions -->
+<!--   dpi = 300                               # Resolution -->
+<!-- ) -->
+<!-- ``` -->
+
+<!-- ## References -->
+
+<!-- ::: {#refs} -->
+<!-- ::: -->
