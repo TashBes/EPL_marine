@@ -81,210 +81,442 @@ google-scholar: true
 
 ------------------------------------------------------------------------
 
-## Summary {#summary}
+### Approach
 
-**Use this section to summarise highlights or key messages of your page** Use bold text to highlight your main points. Do not write it as an abstract. Suggestion is to follow this section with a nice picture that relates to your page/section, before diving into details or supporting statistics
-
-**Remember to use links to relevant sections elsewhere on the page**. To add a link, click on Insert \> Link. In the pop-up box, change the link to selection from URL to Heading, and select the heading of the section you want to link to. The display text will default to the header name. If you want to use different text, you need to tag your header. Select the header, and click on the three dots to the right. In the pop-up box, give the header a tag using the ID text box. The tag must start with #, e.g. #summary. Now you can link to it using the following syntax: [display text](#section-name). (Check how it is configured in Source view).
-
-<!--# Follow the summary section with a relevant picture. Convert pictures to .png or .webp format, with a maximum 800px width, and 72 DPI for web resolution. Store all images in a folder called imgs. Insert images using visual editor Insert -> Figure/Image. Add a descriptive caption in the caption box. Set image alignment to center -->
-
-![Descriptive image captions. As in the 2018 synthesis report, photos get descriptive captions but are not numbered.](imgs/nba-banner.png){fig-align="center"}
-
-## Page body
-
-Organise this part of your webpage into sections and subsections as you see fit. Use it to give background, and present your results and discussions of results.
-
-Label main sections using Header 2. Header 1 is the style reserved for page titles at the top - do not use it anywhere else on the page. Use consecutive higher Header numbers to label subsections.
-
-### Subsection 1 (Header 3)
-
-#### Subsection 2 (Header 4)
-
-etc.
-
-## Inserting footnotes and references
-
-### Footnotes
-
-Use the built-in footnotes function to add notes to your text where necessary. Use notes sparingly - mainly to clarify terms.
-
-Some text with a footnote[^1].
-
-[^1]: Insert a basic footnote by using the Visual editor's Insert \> Footnote. Type the footnote text into the box provided. Quarto will automatically number your references and footnotes in the order that they are inserted in the text.
-
-### References
-
-See [Quarto documentation](https://quarto.org/docs/authoring/citations.html#sec-citations) for different ways to cite references. For reference citations to work, there needs to be a .bib file stored in the same folder as the .qmd file. Give the .bib file a unique name (i.e. change it from the default references.bib). Make sure to edit the yaml header to reference the correct .bib file. See this [bibtex reference](https://www.bibtex.com/e/entry-types/) for the formats for different types of references. The references.bib file in the `quarto` folder contains some example references:
-
-Here is a citation of a journal article[@harris2019].
-
-Here is a citation of a book [@megadiversity1997].
-
-Here is a citation of an edited book[@Skowno2019].
-
-Here is a citation of a book chapter [@wilson2018].
-
-Here is a citation of a report [@vonmaltitz2020carbon].
-
-Here is a citation of a website [@nhm2019].
-
-Here is a citation of multiple references [@barger2018; @melaku2024; @vonmaltitz2020carbon]
-
-For a chapter or section in a book that is part of a series (e.g. Vegetation of South Africa) use the `@inproceedings` format[@vegsa2006]
-
-## Code blocks for graphs, maps and tables
-
-Use these code blocks to ensure that your graphs maps and tables are consistently numbered and labeled. Using these code blocks also lets you cross-reference tables and figures in the text.
-
-### Graphs and maps
-
-The **#\| label:** line in the code below makes it possible to reference the graph in the text. It must always start with **fig-** for Quarto to recognise it as a figure, and to apply correct styling and numbering to the figure caption. Each figure in your document must have a unique **fig**- name. To reference the figure in the text, use Insert \> Cross Reference, and look for the figure lable in the list.
-
-Add an appropriate descriptive caption next to **fig-cap.**
+Marine Ecosystem Protection Level assessment with the inclusion of additional steps to utilise condition of ecosystems within protected areas. This assessment is for 2025 and compares results from the new method to those from the 2018 assessment. It reveals the degree to which Protected Area targets have been met for each terrestrial ecosystem type (ecosystem representation). The analysis includes steps to address the effectiveness of MPAs by down weighting the contribution to targets for areas based on their degradation.
 
 ```{r}
-#| label: fig-ref
-#| fig-cap: "Add figure caption here." 
 
-# Add R code for generating figure here, e.g.
-nbaR::nba_plot(nbaR::NBA_example_thr_data, `OVERALL types`, 2:5, CHRT = "bar", NUM = TRUE, LAB = "Percentage of ecosystem types")
+# Add packages: 
+library(terra)
+library(tidyverse)
+library(sf)
+library(createDB)
+library(PROJ) # seems to be required due to a conflict with postgres on some machines
+ 
+
+## Add data
+year <- "2023"
+
+mpa_fl <- "^SANBI_PA_2023Q4_July2024.shp$"
+
+cnd_fl <- paste0("condition_mpa_", year, ".csv")
 
 ```
 
-### Tables
+### Data sources & import:
 
-Follow the same system for creating tables. Do not use the visual editor to insert tables, as this will create a table in Quarto's default style, and you will have to type in the data manually, making the table less reproducible if your data changes. Note that here you must use the **tbl-** prefix to ensure that quarto recognises it as a table.
+The 4 class South African National condition map for 2018 (benthic) and 2011 (pelagic) (prepared by SANBI based on marine cumulative pressure mapping) was used to calculate the degradation scores for each ecosystem inside the MPA's.
+
+This 4 class condition was cross tabulated with the National Marine Ecosystem Map 2023 version, vector feature geodatabase (ESRI file geodatabase) (released ...) curated by SANBI (cite) and the Protected Areas vector feature geodatabase prepared by SANBI. 
 
 ```{r}
-#| label: tbl-ref
-#| tbl-cap: "Add table caption here." 
-#| classes: plain
+#Add condition data  (note all LC products use  WGS84 Albers Equal Area, central meridian = 25; std parallel1 = -24; std parallel2 = -33). Use Tif version as this is processed faster by R terra.
 
-# Add R code for generating table here, e.g.
-nbaR::nba_tbl(nbaR::NBA_example_pro_data)
+cnd_mpa <- st_read(list.files(path="data", pattern=cnd_fl, recursive = T, full.names = T)[1]) 
+
+# add ecosysetm map
+##connect to database
+con <- sql_con("mem_dwh")
+
+mem <- st_read(dsn = con, query = paste0("SELECT ecosystem_type,realm_primary_getl1, eco_extent_km2_",year, ", geometry FROM dim_poly LEFT JOIN fact_ecosystem ON  fk_poly_b_ecosystem_id = pk_ecosystem_id LEFT JOIN dim_eco_class ON fk_eco_eco_class_id_",year, "  = pk_eco_class_id WHERE version = ", "'", year, "'"))%>%
+  filter(ecosystem_type != "unknown") %>%
+  filter(realm_primary_getl1 != "Estuary")
+
+# mem_p <- st_read(dsn = con, query = paste0("SELECT ecosystem_type,realm_primary_getl1, eco_extent_km2_",year, ", geometry FROM dim_poly LEFT JOIN fact_ecosystem ON  fk_poly_p_ecosystem_id = pk_ecosystem_id LEFT JOIN dim_eco_class ON fk_eco_eco_class_id_",year, "  = pk_eco_class_id WHERE version = ", "'", year, "'"))%>%
+#   filter(ecosystem_type != "unknown") %>%
+#   filter(realm_primary_getl1 != "Estuary")
+# 
+# mem <- mem_b %>% 
+#   bind_rows(mem_p)
+
+DBI::dbDisconnect(con)
+
+if (length(st_is_valid(mem, reason=T)[which(!st_is_valid(mem))]) > 0){
+  mem <- st_make_valid(mem) # fix them
+}
+
+check <- as.data.frame(st_is_valid(mem, reason=T))
+
+
+#add MPA data
+## mpa 
+mpa <- st_read(list.files(path="data", pattern=mpa_fl, recursive = T, full.names = T)[1]) # SANBI_PA_2023Q4_July2024.shp
+
+if (length(st_is_valid(mpa, reason=T)[which(!st_is_valid(mpa))]) > 0){
+  mpa <- st_make_valid(mpa) # fix them
+}
+
+check <- as.data.frame(st_is_valid(mpa, reason=T))
+
 
 ```
 
-### Combine figures and related data
 
-It is possible do display both the data that a figure is based on and the figure using [tabset-panels](https://quarto.org/docs/output-formats/html-basics.html#tabsets). This enables users to interrogate the data behind the statistics directly. Use this code to set up a tabset:
+### Data preparation:
 
-:::: panel-tabset
-## Figure
-
-<!-- it is important to use second-level headings in panel tabsets, i.e. two hashes -->
+Subset PA data to only include Marine Protected Areas using TYPE = "Marine Protected Area" and transform the CRS to match the ecosystem map. For both the ecosystem map and MPA layer combine the polygons of each ecosystem and protected area together into multipolygons to simplyfy the data. 
 
 ```{r}
-#| label: fig-tab
-#| fig-cap: "Ecosystem threat status of terrestrial ecosystem types." 
 
-library(dplyr)
-library(tidyr)
+#Data preparation
+
+## standardise the mpa layer
+
+## remove multi-surface variable, if needed
+mpa <- st_zm(mpa, drop=TRUE, what = "ZM")
+
+##match crs to the mem layer
+#st_crs(mpa) = 4326
+mpa <- st_transform(mpa, crs = st_crs(mem))
+
+##take only the marine and combine zones so one row per mpa
+mpa <- mpa %>% 
+  filter(TYPE == "Marine Protected Area") %>% 
+  group_by(CUR_NME) %>% 
+  summarize(geometry = st_union(geometry))
+
+
+##simplify mem layer to one row per ecosystem
+mem <- mem %>%
+  group_by(ecosystem_type) %>%
+  summarise(eco_extent_km2 = mean(!! rlang::sym(paste0("eco_extent_km2_", year))), ## need to fix this paste0("eco_extent_km2_", year)
+            geometry = st_union(geometry))
+
+```
+
+### Analysis:
+
+*Get the area of each ecosystem within an MPA.*
+
+Get the intersection of the MPA's and the ecosystems, and then calculate the proportion of each ecosystem that falls within an MPA.
+
+
+```{r}
+
+# Step 3. Get the area of each ecosystem within an MPA
+ 
+## perform spatial intersection to find intersecting areas
+ eco_mpa <- st_intersection(mem, mpa) %>% # note this gives you a GEOMETRY collection, so cast to consistent geometry:
+   st_cast(to="MULTIPOLYGON")
+
+if (length(st_is_valid(eco_mpa, reason=T)[which(!st_is_valid(eco_mpa))]) > 0){
+  eco_mpa <- st_make_valid(eco_mpa) # fix them
+}
+
+
+## calculate the area of the intersected polygons
+eco_mpa_areas <- eco_mpa %>%
+  mutate(Area_under_mpa_km2 = units::drop_units(units::set_units(st_area(.), km^2))) %>%  # calculate area in km²
+  group_by(ecosystem_type) %>%  # group by ecosystem type
+  summarise(Total_Area_under_mpa_km2 = sum(Area_under_mpa_km2, na.rm = TRUE)) %>% # sum areas for each ecosystem type
+  st_cast(to="MULTIPOLYGON")
+
+## convert eco_mpa_areas to a non-spatial dataframe for joining
+eco_mpa_areas_non_spatial <- st_drop_geometry(eco_mpa_areas)  
+mem_non_spatial <- st_drop_geometry(mem) 
+
+## join the total areas with the protected areas to calculate percentage protection
+eco_mpa_pro <- eco_mpa_areas_non_spatial %>%
+  right_join(st_drop_geometry(mem_non_spatial)) %>% # join the two datasets
+  mutate(
+    percent_protected = (Total_Area_under_mpa_km2 / eco_extent_km2) * 100,# Calculate the percentage protected
+    across(everything(), ~replace_na(.x, 0)) # replace NA values with 0, to avoid problems downstream
+)
+```
+
+#### Ecosystem Protection Level Analysis
+
+Marine Ecosystem Protection Level was calculated by assessing the degree to which protected areas targets for each ecosystem were met. By cross tabulating Marine ecosystem maps and protected areas maps for the marine realm we calculated for each ecosystem type (150 benthic and 13 pelagic types of marine ecosystems described for South Africa): i) the full extent of the type (**a**), ii) the percentage of the type within the MPA network (**b**), iii) the percentage of natural ecosystem remaining within the MPA network (**c**), iv) the percentage of moderately, severely, and very severely degraded ecosystem within the MPA network for each type (**d**). The target for each ecosysetm is 30% within an MPA.
+
+***ecosystem type targets are 30% to align with GBF target\]***
+
+For each type:
+
+The percentage of the type within the MPA network (**b**) was **adjusted downwards** (**f**) by subtracting 50% of the moderately degraded extent (**d**), 70% of the severely degraded extent (**s**) and 90% of the very severely degraded extent (**vs**) within the MPA network. This step ensures that effectiveness of MPA network is accounted for to a degree by preventing areas heavily degraded from fully contributing to ecosystem representation targets.
+
+Then any ecosystem that reaches the 30% target after the condition adjustments has to contain at least 30% of natural extent within the MPA, otherwise it is adjusted downward to Moderately Protected. 
+
+***(c + d + s + vs)* b = f***
+
+EPL classes:
+
+-   Well Protected (WP); target met or exceeded; ***f \>= 30% and c \>= 30% *** 
+
+-   Moderately Protected (MP); ?% of target met (20-30% protected); ***30% => f\>= 20% ***
+
+-   Poorly Protected (PP); ?% of target met (0.2-20% protected); ***20% => f\>= 0.2%***
+
+-   Not Protected (NP); less than ?% of target met (less than 0.2% protected); ***f\<0.02\***
+
+#### Calculate EPL Benthic
+
+```{r}
+######################################################################################
+#### scale protection level based on condition
+#######################################################################################
+cnd <- read.csv(cnd_fl) %>% 
+  select(-X)%>% 
+  select(-n) %>% 
+  pivot_wider(names_from = condition, values_from = perc) %>% 
+  mutate(total = sum(c_across(`1`:`4`), na.rm = T), .by = ecosystem_type) %>% 
+  mutate(across(everything(), .fns = ~replace_na(.,0)))
+
+
+eco_mpa_cnd <- cnd %>% 
+  left_join(eco_mpa_pro)%>% 
+  #
+  #scale each condition percent by its %degradation score 
+  #
+  mutate(natural_wd = `1`,
+         mod_deg_wd = `2`*0.5,
+         sev_deg_wd = `3`*0.3,
+         v_sev_deg_wd = `4`*0.1) %>% 
+  #
+  #get the total percentage
+  #
+  mutate(total_perc = sum(c_across(natural_wd:v_sev_deg_wd), na.rm = T), 
+         .by = ecosystem_type) %>% 
+  #
+  #get new protection level
+  #
+  mutate(perc_pro_cnd = percent_protected*total_perc)
+
+write.csv(eco_mpa_cnd, paste0("outputs/pro_level_", year, ".csv"))
+
+
+
+```
+
+```{r}
+#####################################################################################
+### assign protected category based on percent protected
+######################################################################################
+##read csv's back in
+pro_2023 <- read_csv(paste0("outputs/pro_level_", year, ".csv"))
+
+
+## calculate protection based on a threshold for 30% (this was not done in the 2019 assessment) 
+eco_mpa_cnd_2023 <- pro_2023 %>% 
+  mutate(
+    protection_level_old_30_2023 = case_when(
+      percent_protected >= 30 & `1` >= 0.3 ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+      percent_protected >= 30 & `1` < 0.3 ~ "Moderately Protected",
+      percent_protected >= 20 & percent_protected < 30 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
+      percent_protected > 0.2 & percent_protected < 20 ~ "Poorly Protected",## if protection is more than or equal to 0.2% and less than 15% classify the protection level category as "Poorly Protected"
+      percent_protected <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
+    )) %>% 
+  mutate(
+    protection_level_new_30_2023 = case_when(
+      perc_pro_cnd >= 30 & `1` >= 0.3  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+      perc_pro_cnd >= 30 & `1` < 0.3 ~ "Moderately Protected",
+      perc_pro_cnd >= 20 & perc_pro_cnd < 30 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
+      perc_pro_cnd > 0.2 & perc_pro_cnd < 20 ~ "Poorly Protected",## if protection is more than or equal to 0.2% and less than 15% classify the protection level category as "Poorly Protected"
+      perc_pro_cnd <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
+    )) %>% 
+  arrange(ecosystem_type) %>% 
+  
+  ##see how many increased and how many decreased
+  mutate(level_2025 = case_when(
+    str_detect(protection_level_new_30_2023, "Well Protected") ~ 4, 
+    str_detect(protection_level_new_30_2023, "Moderately Protected") ~ 3, 
+    str_detect(protection_level_new_30_2023, "Poorly Protected") ~ 2,
+    str_detect(protection_level_new_30_2023, "Not Protected") ~ 1,
+    TRUE ~ 0  # otherwise, Least Concern
+  )) %>% 
+  mutate(level_2023 = case_when(
+    str_detect(protection_level_old_30_2023, "Well Protected") ~ 4, 
+    str_detect(protection_level_old_30_2023, "Moderately Protected") ~ 3, 
+    str_detect(protection_level_old_30_2023, "Poorly Protected") ~ 2,
+    str_detect(protection_level_old_30_2023, "Not Protected") ~ 1,
+    TRUE ~ 0  # otherwise, Least Concern
+  )) %>% 
+  
+  mutate(difference_2023 = if_else(protection_level_old_30_2023 != protection_level_new_30_2023, 
+                              if_else(level_2023 < level_2025, "increase", "decrease"), 
+                              "same"))
+
+```
+
+
+#### **Summarise Ecosystem Protection Levels for 2025 per Biome & calculate EPL Index**
+
+EPL Index calculation (Harris et al in prep)
+
+(sum of WP \*3 + sum of MP \*2 + sum of PP \*1 + sum NP \*0 ) / sum all type \*3
+
+*Calculate biome level summary of EPL 2024 and calculate EPLI 2024*
+
+```{r}
+
+#summarise EPL 2024 per biome with adjustments for invasives 
+epl2024inv_sum <- epl2024 %>%
+  group_by(T_BIOME,epl_nat_inv24) %>%
+  summarise(count = n(),.groups = 'drop') %>%
+  pivot_wider(names_from = epl_nat_inv24, 
+              values_from = count, values_fill = 0) %>%
+  relocate(WP, .before = MP)%>%
+  relocate(NP, .after = PP) %>%
+  # Add row-wise TOTAL
+  rowwise() %>%
+  mutate(Total = sum(c_across(where(is.numeric)))) %>%
+  ungroup() %>%
+  # Add TOTAL row (column-wise sums)
+  bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>%
+  # Add EPLindex
+  mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3)) 
+
+write.csv(epl2024inv_sum, file = "outputs/results_df_EPL_2024_biome_invasives2.csv") #export results 
+
+#summarise EPL 2024 per biome without using any adjustments for invasives (similar to NBA 2018)
+epl2024nat_sum <- epl2024 %>%
+    group_by(T_BIOME,epl_nat24) %>%
+  summarise(count = n(),.groups = 'drop') %>%
+  pivot_wider(names_from = epl_nat24, 
+              values_from = count, values_fill = 0) %>%
+  relocate(WP, .before = MP)%>%
+  relocate(NP, .after = PP) %>%
+   # Add row-wise TOTAL
+  rowwise() %>%
+  mutate(Total = sum(c_across(where(is.numeric)))) %>%
+  ungroup() %>%
+  # Add TOTAL row (column-wise sums)
+  bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>%
+  # Add EPLindex
+  mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3)) 
+
+write.csv(epl2024nat_sum, file = "outputs/results_df_EPL_2024_biome2_natural.csv") #export results 
+
+```
+
+*Calculate biome level summary of EPL 2018 and EPLI 2018*
+
+```{r}
+
+#summarise EPL2018 per biome with adjustments for invasives 
+epl2018inv_sum <- epl2018 %>%
+    group_by(T_BIOME,epl_nat_inv18) %>%
+  summarise(count = n(),.groups = 'drop') %>%
+  pivot_wider(names_from = epl_nat_inv18, 
+              values_from = count, values_fill = 0) %>%
+  relocate(WP, .before = MP)%>%
+  relocate(NP, .after = PP) %>%
+   # Add row-wise TOTAL
+  rowwise() %>%
+  mutate(Total = sum(c_across(where(is.numeric)))) %>%
+  ungroup() %>%
+  # Add TOTAL row (column-wise sums)
+  bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>%
+  # Add EPLindex
+  mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3)) 
+
+write.csv(epl2018inv_sum, file = "outputs/results_df_EPL_2018_biome_invasives2.csv") #export results 
+
+#summarise EPL per biome without using any adjustments for invasives (similar to NBA 2018)
+epl2018nat_sum <- epl2018 %>%
+    group_by(T_BIOME,epl_nat18) %>%
+  summarise(count = n(),.groups = 'drop') %>%
+  pivot_wider(names_from = epl_nat18, 
+              values_from = count, values_fill = 0) %>%
+  relocate(WP, .before = MP)%>%
+  relocate(NP, .after = PP) %>%
+   # Add row-wise TOTAL
+  rowwise() %>%
+  mutate(Total = sum(c_across(where(is.numeric)))) %>%
+  ungroup() %>%
+  # Add TOTAL row (column-wise sums)
+  bind_rows(summarise(., T_BIOME = "Total", across(where(is.numeric), sum))) %>%
+  # Add EPLindex
+  mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3)) 
+
+write.csv(epl2018nat_sum, file = "outputs/results_df_EPL_2018_biome2_natural.csv") #export results 
+```
+
+#### **Make graphs for NBA**
+
+```{r}
+# to avoid rerunning spatial analysis load data from file...
+#data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2024_biome_invasives2.csv")
+#data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2018_biome_invasives2.csv")
+
+# load nbaR package : first run this in console devtools::install_github("SANBI-NBA/nbaR") 
 library(nbaR)
 
-dat <- read.csv("data/terrestrial-ecosystems.csv", header = TRUE)
+# Use NBA package to make EPL graph (need high res output for booklet)
+EPL <- epl2024inv_sum %>%
+    rename(`Well Protected` = WP, 
+           `Moderately Protected` = MP, 
+           `Poorly Protected` = PP, 
+           `Not Protected` = NP ) # %>%
+  # select(-...1) # required if importing from CSV
+ 
+epl24_bar_plot <- nba_plot(EPL,
+                  `T_BIOME`,
+                  2:5,
+                 CHRT = "bar",
+                 NUM = TRUE,
+                 LAB = "Percentage of ecosystem types",
+                SAVE = NULL)
 
-ecosystem_summary <- dat %>% 
-                      group_by(biome, threat_status) %>% 
-                      summarise(count = n()) %>% 
-                      pivot_wider(
-                        id_cols = biome,
-                        names_from = threat_status,
-                        values_from = count
-                      ) %>% 
-                      mutate(across(where(is.numeric), ~replace_na(.x,0))) %>% ungroup()
+epl24_bar_plot
 
-nba_plot(ecosystem_summary,
-         biome,
-         2:5,
-         CHRT = "bar",
-         NUM = FALSE,
-         LAB = "Percentage of ecosystem types",
-         SAVE = "test-fig")
+#export the graph
+ggsave(
+  filename = "outputs/epl24_bar_plot.jpeg", # File name
+  plot = epl24_bar_plot,                   # Plot object
+  device = "jpeg",                        # File format
+  width = 16, height = 12, units = "cm",   # Dimensions
+  dpi = 300                               # Resolution
+)
 
-```
+#make a line plot of EPL Index using 2018 and 2014 timepoints - request Natasha to impve this or add to package.
 
-## Data
+biome_colors <- c(
+  "Albany Thicket" = "darkgreen",
+  "Azonal" = "blue",
+  "Desert" =  "darkgrey",
+  "Forest" =  "darkblue",
+  "Fynbos"  =  "purple",
+  "Grassland"  = "green3",
+  "IOCB"  = "orange",
+  "Nama-Karoo" = "brown1",
+  "Savanna"  =  "brown",
+  "Succulent Karoo"  = "yellow3",
+  "Total" = "black"
+)
 
-<!--# If the table is long use the div to give it a vertical scroll bar. Otherwise the div can be excluded. -->
-
-::: {#table .table style="height:500px;overflow-y: auto"}
-```{r}
-#| label: tbl-tab
-#| tbl-cap: "Ecosystem threat status of terrestrial ecosystem types." 
-#| classes: plain
-
-library(dplyr)
-library(nbaR)
-library(gt)
-
-tbl_dat <- dat %>% 
-            select(ecosystem, biome, threat_status) %>% 
-            arrange(biome, ecosystem)
-
-colnames(tbl_dat) <- c("Ecosystem", "Biome", "Threat status")
-
-gt(tbl_dat) %>% nba_tbl_theme()
-
-```
-:::
-
-Download the data [here](http://insert_your_link_to_your_data).
-::::
-
-## Information boxes
-
-Additional information can be added in collapsible information boxes using [callout blocks](https://quarto.org/docs/authoring/callouts.html). The callout block is styled using the scss file associated with this template, therefore it does not look exactly like the standard Quarto callouts. If you want to cross reference the box in the text, you need to give it a uniqe name starting with **\#** this will allow you to reference it as [Box 1](#box-1).
-
-::: {#box-1 .callout-note collapse="true"}
-## Box 1. Box title
-
-<!-- it is important to use second-level headings in box titles -->
-
-Add the box content here. It can include text, pictures, tables and graphs. Add them as you would for general text.
-:::
-
-## Technical documentation
-
-<!--# This section is compulsory for all scientific content, but what you include here is flexible based on what you have available for your indicators -->
-
-<!--# the below examples/recommendations can be modified, e.g. you could do a technical report PDF, as long as it is made available on a public repository (figshare?) and can be linked to in this document -->
-
-<!--# avoid linking to Google Drive or other personal drives that may not be permanent. -->
-
-<!--# Always use DOI to link to published papers - never use the journal's website -->
-
-The last section of your page should contain links to technical documentation of the indicators and analyses presented on your page. Technical documentation can be in a variety of formats. It is not necessary to have all these in place, but there should at least be a technical report available in a public document repository (e.g. OPUS) or a published paper describing your methods. Edit and adapt the suggested layout below depending on what technical documentation is applicable to your page.
-
--   **Code repository**: [github.com/SANBI-NBA/templates](https://github.com/SANBI-NBA/templates)
-
--   **Data repository**: [OPUS](https://opus.sanbi.org/home), [Figshare](https://figshare.com/), [KNB](https://knb.ecoinformatics.org/) or [BGIS](https://bgis.sanbi.org/) - link to the specific page within these websites containing your data.
-
--   **Technical report**: Add link to technical report in PDF format or Quarto website
-
-**Key publications**
-
-Jordaan, M.S., et al. 2020. Protected areas and endemic freshwater fishes of the Cape Fold Ecoregion: missing the boat for fish conservation? Frontiers in Environmental Science 8:502042. doi: [10.3389/fenvs.2020.502042](https://doi.org/10.3389/fenvs.2020.502042)
-
-## Recommended citation
-
-```{r}
-#| output: asis
-#| label: lst-citation-code
-
-library(nbaR) 
-library(knitr)
-library(rmarkdown)
-
-# Code for fetching the yaml metadata
-# Note that this only runs when the .qmd file is rendered, therefore the outputs of this code block will return no results if you try to run it within R - that does not mean it is not working
-
-meta <- knitr::opts_knit$get("rmarkdown.pandoc.to")  # forces knitr to load metadata
-meta <- rmarkdown::metadata  # full YAML is now in `meta`
-
-nba_citation(meta)
-
+EPLI <- epl2024inv_sum %>%
+  select(T_BIOME, EPLI) %>% 
+  rename(EPLI24 = EPLI) %>%
+   left_join(epl2018inv_sum, by ="T_BIOME") %>%
+   rename(EPLI18 = EPLI) %>%
+   rename(Biome = T_BIOME) %>%
+  select(Biome,EPLI18, EPLI24) %>%
+  pivot_longer(cols = c(2,3), names_to = "Year", values_to = "EPLI") %>%
+    mutate(Year = case_when(
+    Year == "EPLI18" ~ "2018",
+    Year == "EPLI24" ~ "2024",
+    TRUE ~ Year
+  ))
+  
+  epli_line_plot <- ggplot(EPLI, aes(x = Year, y = EPLI, group = Biome, color = Biome)) +
+  scale_color_manual(values = biome_colors) + 
+    geom_line(size = 1.2) +
+  geom_point(size = 2) +
+  theme_minimal() +
+  labs(x = "Year", y = "EPLI") +
+  scale_x_discrete(limits = c("2018", "2024"))
+  
+  epli_line_plot
+  
+  #export the graph
+ggsave(
+  filename = "outputs/epli_line_plot.jpeg", # File name
+  plot = epli_line_plot,                   # Plot object
+  device = "jpeg",                        # File format
+  width = 16, height = 12, units = "cm",   # Dimensions
+  dpi = 300                               # Resolution
+)
 ```
 
 ## References
