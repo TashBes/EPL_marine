@@ -395,10 +395,12 @@ eco_mpa_cnd_2023 <- pro_2023 %>%
 
 EPL_tbl <- eco_mpa_cnd_2023 %>% 
   select(-c(`1`, `2`, `3`, `4`, total,
-            level_2018_20, level_2018_30, level_2025_30)) %>% 
-  nbaR::nba_tbl_colr(COL = pro_lvl_2025_30) 
+            level_2018_20, level_2018_30, level_2025_30)) 
+
+write.csv(EPL_tbl, "outputs/EPL_tbl_09_06_2025.csv")
   
-EPL_tbl
+EPL_tbl%>% 
+  nbaR::nba_tbl_colr(COL = pro_lvl_2025_30) 
 
 ```
 
