@@ -9,7 +9,7 @@
 <meta name="author" content="First Author">
 <meta name="dcterms.date" content="2025-06-08">
 
-<title>Add the title of your page here</title>
+<title>Marine Ecosystem Protection Level</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -22,7 +22,26 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-</style>
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
 
 
 <script src="scientific_files/libs/clipboard/clipboard.min.js"></script>
@@ -49,12 +68,12 @@ ul.task-list li input[type="checkbox"] {
 
       .quarto-title-block .quarto-title-banner {
         color: white;
-background: #A7A9AC;
+background: #02268A;
       }
 </style>
 
 
-<meta name="citation_title" content="Add the title of your page here">
+<meta name="citation_title" content="Marine Ecosystem Protection Level">
 <meta name="citation_author" content="First Author">
 <meta name="citation_publication_date" content="2025-06-08">
 <meta name="citation_cover_date" content="2025-06-08">
@@ -80,8 +99,8 @@ background: #A7A9AC;
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">Add the title of your page here</h1>
-            <p class="subtitle lead">Add subtitle here</p>
+      <h1 class="title">Marine Ecosystem Protection Level</h1>
+            <p class="subtitle lead">Comparion between 2018 results and the new 2025 calculation methodology</p>
                       </div>
   </div>
     
@@ -127,8 +146,9 @@ background: #A7A9AC;
   <ul>
   <li><a href="#ecosystem-protection-level-analysis" id="toc-ecosystem-protection-level-analysis" class="nav-link" data-scroll-target="#ecosystem-protection-level-analysis">Ecosystem Protection Level Analysis</a></li>
   <li><a href="#calculate-epl-benthic" id="toc-calculate-epl-benthic" class="nav-link" data-scroll-target="#calculate-epl-benthic">Calculate EPL Benthic</a></li>
-  <li><a href="#summarise-ecosystem-protection-levels-for-2025-per-biome-calculate-epl-index" id="toc-summarise-ecosystem-protection-levels-for-2025-per-biome-calculate-epl-index" class="nav-link" data-scroll-target="#summarise-ecosystem-protection-levels-for-2025-per-biome-calculate-epl-index"><strong>Summarise Ecosystem Protection Levels for 2025 per Biome &amp; calculate EPL Index</strong></a></li>
+  <li><a href="#make-graphs-for-nba" id="toc-make-graphs-for-nba" class="nav-link" data-scroll-target="#make-graphs-for-nba"><strong>Make graphs for NBA</strong></a></li>
   </ul></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
   </ul>
 </nav>
 </div>
@@ -144,16 +164,16 @@ background: #A7A9AC;
 <div class="column" style="width:50%;">
 <center>
 <div class="line-block"><span class="inline-style-threatened">00%</span><br>
-of 220 ecosystem types<br>
+of 163 ecosystem types<br>
 <span class="inline-style-indicator">Threatened</span></div>
 <div class="line-block"><span class="inline-style-well-protected">00%</span><br>
-of 220 ecosystem types<br>
+of 163 ecosystem types<br>
 <span class="inline-style-indicator">Well Protected</span></div>
 </center>
 </div><div class="column" style="width:50%;">
 <center>
 <div class="line-block"><span class="inline-style-not-protected">00%</span><br>
-of 220 ecosystem types<br>
+of 163 ecosystem types<br>
 <span class="inline-style-indicator">Not protected</span></div>
 <div class="line-block"><span class="inline-style-threatened">00%</span><br>
 of 50 taxa assessed<br>
@@ -214,12 +234,10 @@ Projected CRS: SA Albers Equal Area</code></pre>
 </section>
 <section id="calculate-epl-benthic" class="level4">
 <h4 class="anchored" data-anchor-id="calculate-epl-benthic">Calculate EPL Benthic</h4>
-</section>
-<section id="summarise-ecosystem-protection-levels-for-2025-per-biome-calculate-epl-index" class="level4">
-<h4 class="anchored" data-anchor-id="summarise-ecosystem-protection-levels-for-2025-per-biome-calculate-epl-index"><strong>Summarise Ecosystem Protection Levels for 2025 per Biome &amp; calculate EPL Index</strong></h4>
-<p>EPL Index calculation (Harris et al in prep)</p>
-<p>(sum of WP *3 + sum of MP *2 + sum of PP *1 + sum NP *0 ) / sum all type *3</p>
-<p><em>Calculate biome level summary of EPL 2024 and calculate EPLI 2024</em></p>
+<!-- #### **Summarise Ecosystem Protection Levels for 2025 per Biome & calculate EPL Index** -->
+<!-- EPL Index calculation (Harris et al in prep) -->
+<!-- (sum of WP \*3 + sum of MP \*2 + sum of PP \*1 + sum NP \*0 ) / sum all type \*3 -->
+<!-- *Calculate biome level summary of EPL 2024 and calculate EPLI 2024* -->
 <!-- ```{r} -->
 <!-- #summarise EPL 2024 per biome with adjustments for invasives  -->
 <!-- epl2024inv_sum <- epl2024 %>% -->
@@ -293,84 +311,32 @@ Projected CRS: SA Albers Equal Area</code></pre>
 <!--   mutate(EPLI = ((WP*3)+(MP*2)+(PP*1)+(NP*0))/((WP+MP+PP+NP)*3))  -->
 <!-- write.csv(epl2018nat_sum, file = "outputs/results_df_EPL_2018_biome2_natural.csv") #export results  -->
 <!-- ``` -->
-<!-- #### **Make graphs for NBA** -->
-<!-- ```{r} -->
-<!-- # to avoid rerunning spatial analysis load data from file... -->
-<!-- #data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2024_biome_invasives2.csv") -->
-<!-- #data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2018_biome_invasives2.csv") -->
-<!-- # load nbaR package : first run this in console devtools::install_github("SANBI-NBA/nbaR")  -->
-<!-- library(nbaR) -->
-<!-- # Use NBA package to make EPL graph (need high res output for booklet) -->
-<!-- EPL <- epl2024inv_sum %>% -->
-<!--     rename(`Well Protected` = WP,  -->
-<!--            `Moderately Protected` = MP,  -->
-<!--            `Poorly Protected` = PP,  -->
-<!--            `Not Protected` = NP ) # %>% -->
-<!--   # select(-...1) # required if importing from CSV -->
-<!-- epl24_bar_plot <- nba_plot(EPL, -->
-<!--                   `T_BIOME`, -->
-<!--                   2:5, -->
-<!--                  CHRT = "bar", -->
-<!--                  NUM = TRUE, -->
-<!--                  LAB = "Percentage of ecosystem types", -->
-<!--                 SAVE = NULL) -->
-<!-- epl24_bar_plot -->
-<!-- #export the graph -->
-<!-- ggsave( -->
-<!--   filename = "outputs/epl24_bar_plot.jpeg", # File name -->
-<!--   plot = epl24_bar_plot,                   # Plot object -->
-<!--   device = "jpeg",                        # File format -->
-<!--   width = 16, height = 12, units = "cm",   # Dimensions -->
-<!--   dpi = 300                               # Resolution -->
-<!-- ) -->
-<!-- #make a line plot of EPL Index using 2018 and 2014 timepoints - request Natasha to impve this or add to package. -->
-<!-- biome_colors <- c( -->
-<!--   "Albany Thicket" = "darkgreen", -->
-<!--   "Azonal" = "blue", -->
-<!--   "Desert" =  "darkgrey", -->
-<!--   "Forest" =  "darkblue", -->
-<!--   "Fynbos"  =  "purple", -->
-<!--   "Grassland"  = "green3", -->
-<!--   "IOCB"  = "orange", -->
-<!--   "Nama-Karoo" = "brown1", -->
-<!--   "Savanna"  =  "brown", -->
-<!--   "Succulent Karoo"  = "yellow3", -->
-<!--   "Total" = "black" -->
-<!-- ) -->
-<!-- EPLI <- epl2024inv_sum %>% -->
-<!--   select(T_BIOME, EPLI) %>%  -->
-<!--   rename(EPLI24 = EPLI) %>% -->
-<!--    left_join(epl2018inv_sum, by ="T_BIOME") %>% -->
-<!--    rename(EPLI18 = EPLI) %>% -->
-<!--    rename(Biome = T_BIOME) %>% -->
-<!--   select(Biome,EPLI18, EPLI24) %>% -->
-<!--   pivot_longer(cols = c(2,3), names_to = "Year", values_to = "EPLI") %>% -->
-<!--     mutate(Year = case_when( -->
-<!--     Year == "EPLI18" ~ "2018", -->
-<!--     Year == "EPLI24" ~ "2024", -->
-<!--     TRUE ~ Year -->
-<!--   )) -->
-<!--   epli_line_plot <- ggplot(EPLI, aes(x = Year, y = EPLI, group = Biome, color = Biome)) + -->
-<!--   scale_color_manual(values = biome_colors) +  -->
-<!--     geom_line(size = 1.2) + -->
-<!--   geom_point(size = 2) + -->
-<!--   theme_minimal() + -->
-<!--   labs(x = "Year", y = "EPLI") + -->
-<!--   scale_x_discrete(limits = c("2018", "2024")) -->
-<!--   epli_line_plot -->
-<!--   #export the graph -->
-<!-- ggsave( -->
-<!--   filename = "outputs/epli_line_plot.jpeg", # File name -->
-<!--   plot = epli_line_plot,                   # Plot object -->
-<!--   device = "jpeg",                        # File format -->
-<!--   width = 16, height = 12, units = "cm",   # Dimensions -->
-<!--   dpi = 300                               # Resolution -->
-<!-- ) -->
-<!-- ``` -->
-<!-- ## References -->
-<!-- ::: {#refs} -->
-<!-- ::: -->
 </section>
+<section id="make-graphs-for-nba" class="level4">
+<h4 class="anchored" data-anchor-id="make-graphs-for-nba"><strong>Make graphs for NBA</strong></h4>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="scientific_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="scientific_files/figure-html/unnamed-chunk-7-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="references" class="level2">
+<h2 class="anchored" data-anchor-id="references">References</h2>
+<div id="refs" role="list">
+
+</div>
 </section>
 
 </main>

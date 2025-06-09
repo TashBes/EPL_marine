@@ -1,10 +1,10 @@
 ---
 # indentations are critical in YAML headers, be careful when editing this section
 
-title: "Add the title of your page here" # Compulsory
-subtitle: "Add subtitle here" # Optional: delete if you are not using a subtitle
+title: "Marine Ecosystem Protection Level" # Compulsory
+subtitle: "Comparion between 2018 results and the new 2025 calculation methodology" # Optional: delete if you are not using a subtitle
 
-title-block-banner: "#A7A9AC" #Background colour of the title block: Apply component colours where necessary - find hex codes in _brand.yml
+title-block-banner: "#02268A" #Background colour of the title block: Apply component colours where necessary - find hex codes in _brand.yml
 title-block-banner-color: white # Header text colour: DO NOT CHANGE
 
 # List authors here in the order you want them displayed in the title block
@@ -54,11 +54,11 @@ google-scholar: true
 <center>
 
 | [00%]{.inline-style-threatened}
-| of 220 ecosystem types
+| of 163 ecosystem types
 | [Threatened]{.inline-style-indicator}
 
 | [00%]{.inline-style-well-protected}
-| of 220 ecosystem types
+| of 163 ecosystem types
 | [Well Protected]{.inline-style-indicator}
 
 </center>
@@ -68,7 +68,7 @@ google-scholar: true
 <center>
 
 | [00%]{.inline-style-not-protected}
-| of 220 ecosystem types
+| of 163 ecosystem types
 | [Not protected]{.inline-style-indicator}
 
 | [00%]{.inline-style-threatened}
@@ -83,9 +83,14 @@ google-scholar: true
 
 ### Approach
 
-Marine Ecosystem Protection Level assessment with the inclusion of additional steps to utilise condition of ecosystems within protected areas. This assessment is for 2025 and compares results from the new method to those from the 2018 assessment. It reveals the degree to which Protected Area targets have been met for each terrestrial ecosystem type (ecosystem representation). The analysis includes steps to address the effectiveness of MPAs by down weighting the contribution to targets for areas based on their degradation.
+Marine Ecosystem Protection Level assessment with the inclusion of additional steps to utilise condition of ecosystems within protected areas. This assessment is for 2025 and compares results from the new method to those from the 2018 assessment. It reveals the degree to which Protected Area targets have been met for each marine ecosystem type (ecosystem representation). The analysis includes a new method to address the effectiveness of MPAs by down weighting the contribution to targets for areas based on their degradation.
+
+The protection level target has also increased from 20% to 30% in this assessment. Therefore it is expected that some ecosystems will experience a decrease in protection level despite no changes to protected area coverage since the 2018 assessment.
 
 ```{r}
+#| message: false
+#| warning: false
+#| include: false
 
 # Add packages: 
 library(terra)
@@ -106,11 +111,14 @@ cnd_fl <- paste0("condition_mpa_", year, ".csv")
 
 ### Data sources & import:
 
-The 4 class South African National condition map for 2018 (benthic) and 2011 (pelagic) (prepared by SANBI based on marine cumulative pressure mapping) was used to calculate the degradation scores for each ecosystem inside the MPA's.
+The 4 class South African National condition map for 2018 (benthic) and 3 class South African National condition map for 2011 (pelagic) (prepared by SANBI based on marine cumulative pressure mapping) was used to calculate the degradation scores for each ecosystem inside the MPA's.
 
-This 4 class condition was cross tabulated with the National Marine Ecosystem Map 2023 version, vector feature geodatabase (ESRI file geodatabase) (released ...) curated by SANBI (cite) and the Protected Areas vector feature geodatabase prepared by SANBI. 
+These condition classes were cross tabulated with the National Marine Ecosystem Map 2023 version, vector feature geodatabase (ESRI file geodatabase) (released ...) curated by SANBI (cite) and the Protected Areas vector feature geodatabase prepared by SANBI. 
 
 ```{r}
+#| message: false
+#| warning: false
+#| include: false
 #Add condition data  (note all LC products use  WGS84 Albers Equal Area, central meridian = 25; std parallel1 = -24; std parallel2 = -33). Use Tif version as this is processed faster by R terra.
 
 cnd_mpa <- st_read(list.files(path="data", pattern=cnd_fl, recursive = T, full.names = T)[1]) 
@@ -155,9 +163,12 @@ check <- as.data.frame(st_is_valid(mpa, reason=T))
 
 ### Data preparation:
 
-Subset PA data to only include Marine Protected Areas using TYPE = "Marine Protected Area" and transform the CRS to match the ecosystem map. For both the ecosystem map and MPA layer combine the polygons of each ecosystem and protected area together into multipolygons to simplyfy the data. 
+Subset protected area data to only include Marine Protected Areas using TYPE = "Marine Protected Area" and transform the CRS to match the ecosystem map. For both the ecosystem map and MPA layer combine the polygons of each ecosystem and protected area together into multipolygons to simplify the data. 
 
 ```{r}
+#| message: false
+#| warning: false
+#| include: false
 
 #Data preparation
 
@@ -193,6 +204,9 @@ Get the intersection of the MPA's and the ecosystems, and then calculate the pro
 
 
 ```{r}
+#| message: false
+#| warning: false
+#| include: false
 
 # Step 3. Get the area of each ecosystem within an MPA
  
@@ -227,17 +241,17 @@ eco_mpa_pro <- eco_mpa_areas_non_spatial %>%
 
 #### Ecosystem Protection Level Analysis
 
-Marine Ecosystem Protection Level was calculated by assessing the degree to which protected areas targets for each ecosystem were met. By cross tabulating Marine ecosystem maps and protected areas maps for the marine realm we calculated for each ecosystem type (150 benthic and 13 pelagic types of marine ecosystems described for South Africa): i) the full extent of the type (**a**), ii) the percentage of the type within the MPA network (**b**), iii) the percentage of natural ecosystem remaining within the MPA network (**c**), iv) the percentage of moderately, severely, and very severely degraded ecosystem within the MPA network for each type (**d**). The target for each ecosysetm is 30% within an MPA.
+For the 2025 analysis, Marine Ecosystem Protection Level was calculated by assessing the degree to which protected areas targets for each ecosystem were met. By cross tabulating Marine ecosystem maps and protected areas maps for the marine realm we calculated for each ecosystem type (150 benthic and 13 pelagic types of marine ecosystems described for South Africa): i) the full extent of the type (**a**), ii) the percentage of the type within the MPA network (**b**), iii) the percentage of natural ecosystem remaining within the MPA network (**c**), iv) the percentage of moderately, severely, and very severely degraded ecosystem within the MPA network for each type (**d**). The target for each ecosystem is 30% within an MPA.
 
 ***ecosystem type targets are 30% to align with GBF target\]***
 
 For each type:
 
-The percentage of the type within the MPA network (**b**) was **adjusted downwards** (**f**) by subtracting 50% of the moderately degraded extent (**d**), 70% of the severely degraded extent (**s**) and 90% of the very severely degraded extent (**vs**) within the MPA network. This step ensures that effectiveness of MPA network is accounted for to a degree by preventing areas heavily degraded from fully contributing to ecosystem representation targets.
+The percentage of the type within the MPA network (**b**) was **adjusted downwards** (**f**) by subtracting 50% of the moderately degraded extent (**m**), 70% of the severely degraded extent (**s**) and 90% of the very severely degraded extent (**vs**) within the MPA network. This step ensures that effectiveness of MPA network is accounted for to a degree by preventing areas heavily degraded from fully contributing to ecosystem representation targets.
 
 Then any ecosystem that reaches the 30% target after the condition adjustments has to contain at least 30% of natural extent within the MPA, otherwise it is adjusted downward to Moderately Protected. 
 
-***(c + d + s + vs)* b = f***
+***(c + m + s + vs)* b = f***
 
 EPL classes:
 
@@ -249,9 +263,28 @@ EPL classes:
 
 -   Not Protected (NP); less than ?% of target met (less than 0.2% protected); ***f\<0.02\***
 
+This is different to the 2018 analysis were all conditions contributed equally to protection level and the classes were calculated such that:
+
+**c + d = f**
+
+EPL classes:
+
+-   Well Protected (WP); target met or exceeded; ***f \>= 20% and c \>= 20% *** 
+
+-   Moderately Protected (MP); ?% of target met (10-20% protected); ***20% => f\>= 10% ***
+
+-   Poorly Protected (PP); ?% of target met (0.2-10% protected); ***10% => f\>= 0.2%***
+
+-   Not Protected (NP); less than ?% of target met (less than 0.2% protected); ***f\<0.02\***
+
 #### Calculate EPL Benthic
 
+To compare results to the 2018 protection level assessment we compared the original 2018 assessment results **i)** to results of using the 2018 method on the new 2023 map (no changes) **ii)**, to results using the new 2023 map and increasing the targets by 10% each **iii)**, and then to results using the new 2023 map, increasing the targets by 10% each, and using the new condition adjusted method **iV)**.
+
 ```{r}
+#| message: false
+#| warning: false
+#| include: false
 ######################################################################################
 #### scale protection level based on condition
 #######################################################################################
@@ -290,6 +323,9 @@ write.csv(eco_mpa_cnd, paste0("outputs/pro_level_", year, ".csv"))
 ```
 
 ```{r}
+#| echo: false
+#| message: false
+#| warning: false
 #####################################################################################
 ### assign protected category based on percent protected
 ######################################################################################
@@ -301,7 +337,15 @@ pro_2023 <- eco_mpa_cnd
 eco_mpa_cnd_2023 <- pro_2023 %>% 
   mutate(across(everything(), .fns = ~replace_na(.,0))) %>% 
   mutate(
-    protection_level_old_30_2023 = case_when(
+    pro_lvl_2018_20 = case_when(
+      percent_protected >= 20 & `1` >= 0.2 ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+      percent_protected >= 20 & `1` < 0.3 ~ "Moderately Protected",
+      percent_protected >= 10 & percent_protected < 20 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
+      percent_protected > 0.2 & percent_protected < 10 ~ "Poorly Protected",## if protection is more than or equal to 0.2% and less than 15% classify the protection level category as "Poorly Protected"
+      percent_protected <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
+    )) %>% 
+  mutate(
+    pro_lvl_2018_30 = case_when(
       percent_protected >= 30 & `1` >= 0.3 ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
       percent_protected >= 30 & `1` < 0.3 ~ "Moderately Protected",
       percent_protected >= 20 & percent_protected < 30 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
@@ -309,7 +353,7 @@ eco_mpa_cnd_2023 <- pro_2023 %>%
       percent_protected <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
     )) %>% 
   mutate(
-    protection_level_new_30_2023 = case_when(
+    pro_lvl_2025_30 = case_when(
       perc_pro_cnd >= 30 & `1` >= 0.3  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
       perc_pro_cnd >= 30 & `1` < 0.3 ~ "Moderately Protected",
       perc_pro_cnd >= 20 & perc_pro_cnd < 30 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
@@ -319,35 +363,53 @@ eco_mpa_cnd_2023 <- pro_2023 %>%
   arrange(ecosystem_type) %>% 
   
   ##see how many increased and how many decreased
-  mutate(level_2025 = case_when(
-    str_detect(protection_level_new_30_2023, "Well Protected") ~ 4, 
-    str_detect(protection_level_new_30_2023, "Moderately Protected") ~ 3, 
-    str_detect(protection_level_new_30_2023, "Poorly Protected") ~ 2,
-    str_detect(protection_level_new_30_2023, "Not Protected") ~ 1,
+  mutate(level_2018_20 = case_when(
+    str_detect(pro_lvl_2018_20, "Well Protected") ~ 4, 
+    str_detect(pro_lvl_2018_20, "Moderately Protected") ~ 3, 
+    str_detect(pro_lvl_2018_20, "Poorly Protected") ~ 2,
+    str_detect(pro_lvl_2018_20, "Not Protected") ~ 1,
     TRUE ~ 0  # otherwise, Least Concern
   )) %>% 
-  mutate(level_2023 = case_when(
-    str_detect(protection_level_old_30_2023, "Well Protected") ~ 4, 
-    str_detect(protection_level_old_30_2023, "Moderately Protected") ~ 3, 
-    str_detect(protection_level_old_30_2023, "Poorly Protected") ~ 2,
-    str_detect(protection_level_old_30_2023, "Not Protected") ~ 1,
+  mutate(level_2018_30 = case_when(
+    str_detect(pro_lvl_2018_30, "Well Protected") ~ 4, 
+    str_detect(pro_lvl_2018_30, "Moderately Protected") ~ 3, 
+    str_detect(pro_lvl_2018_30, "Poorly Protected") ~ 2,
+    str_detect(pro_lvl_2018_30, "Not Protected") ~ 1,
+    TRUE ~ 0  # otherwise, Least Concern
+  )) %>% 
+  mutate(level_2025_30 = case_when(
+    str_detect(pro_lvl_2025_30, "Well Protected") ~ 4, 
+    str_detect(pro_lvl_2025_30, "Moderately Protected") ~ 3, 
+    str_detect(pro_lvl_2025_30, "Poorly Protected") ~ 2,
+    str_detect(pro_lvl_2025_30, "Not Protected") ~ 1,
     TRUE ~ 0  # otherwise, Least Concern
   )) %>% 
   
-  mutate(difference_2023 = if_else(protection_level_old_30_2023 != protection_level_new_30_2023, 
-                              if_else(level_2023 < level_2025, "increase", "decrease"), 
+  mutate(difference_2018_30_20 = if_else(level_2018_20 != level_2018_30, 
+                              if_else(level_2018_20 < level_2018_30, "increase", "decrease"), 
+                              "same"))%>% 
+  
+  mutate(difference_2018_2025_30 = if_else(level_2018_30 != level_2025_30, 
+                              if_else(level_2018_30 < level_2025_30, "increase", "decrease"), 
                               "same"))
+
+EPL_tbl <- eco_mpa_cnd_2023 %>% 
+  select(-c(`1`, `2`, `3`, `4`, total,
+            level_2018_20, level_2018_30, level_2025_30)) %>% 
+  nbaR::nba_tbl_colr(COL = pro_lvl_2025_30) 
+  
+EPL_tbl
 
 ```
 
 
-#### **Summarise Ecosystem Protection Levels for 2025 per Biome & calculate EPL Index**
+<!-- #### **Summarise Ecosystem Protection Levels for 2025 per Biome & calculate EPL Index** -->
 
-EPL Index calculation (Harris et al in prep)
+<!-- EPL Index calculation (Harris et al in prep) -->
 
-(sum of WP \*3 + sum of MP \*2 + sum of PP \*1 + sum NP \*0 ) / sum all type \*3
+<!-- (sum of WP \*3 + sum of MP \*2 + sum of PP \*1 + sum NP \*0 ) / sum all type \*3 -->
 
-*Calculate biome level summary of EPL 2024 and calculate EPLI 2024*
+<!-- *Calculate biome level summary of EPL 2024 and calculate EPLI 2024* -->
 
 <!-- ```{r} -->
 
@@ -434,94 +496,215 @@ EPL Index calculation (Harris et al in prep)
 <!-- write.csv(epl2018nat_sum, file = "outputs/results_df_EPL_2018_biome2_natural.csv") #export results  -->
 <!-- ``` -->
 
-<!-- #### **Make graphs for NBA** -->
+#### **Make graphs for NBA**
 
-<!-- ```{r} -->
-<!-- # to avoid rerunning spatial analysis load data from file... -->
-<!-- #data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2024_biome_invasives2.csv") -->
-<!-- #data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2018_biome_invasives2.csv") -->
+The protection level map and donut plot results of the 2025 method
 
-<!-- # load nbaR package : first run this in console devtools::install_github("SANBI-NBA/nbaR")  -->
-<!-- library(nbaR) -->
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+# to avoid rerunning spatial analysis load data from file...
+#data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2024_biome_invasives2.csv")
+#data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2018_biome_invasives2.csv")
 
-<!-- # Use NBA package to make EPL graph (need high res output for booklet) -->
-<!-- EPL <- epl2024inv_sum %>% -->
-<!--     rename(`Well Protected` = WP,  -->
-<!--            `Moderately Protected` = MP,  -->
-<!--            `Poorly Protected` = PP,  -->
-<!--            `Not Protected` = NP ) # %>% -->
-<!--   # select(-...1) # required if importing from CSV -->
+# load nbaR package : first run this in console devtools::install_github("SANBI-NBA/nbaR")
+library(nbaR)
 
-<!-- epl24_bar_plot <- nba_plot(EPL, -->
-<!--                   `T_BIOME`, -->
-<!--                   2:5, -->
-<!--                  CHRT = "bar", -->
-<!--                  NUM = TRUE, -->
-<!--                  LAB = "Percentage of ecosystem types", -->
-<!--                 SAVE = NULL) -->
+# Use NBA package to make EPL graph (need high res output for booklet)
+#######connect back to pro level
+pro_level_benth_poly <- mem %>% 
+  select(ecosystem_type) %>% 
+  right_join(eco_mpa_cnd_2023)
 
-<!-- epl24_bar_plot -->
+pro_level <- nbaR::nba_map(pro_level_benth_poly,
+                      COLS = NULL, 
+                      geometry, 
+                      CAP = "Benthic protection level 2025", 
+                      FILL = pro_lvl_2025_30)
+pro_level+
+  geom_sf(data=pro_level_benth_poly, colour = "black", fill = NA)+
+  theme(panel.border = element_blank())
 
-<!-- #export the graph -->
-<!-- ggsave( -->
-<!--   filename = "outputs/epl24_bar_plot.jpeg", # File name -->
-<!--   plot = epl24_bar_plot,                   # Plot object -->
-<!--   device = "jpeg",                        # File format -->
-<!--   width = 16, height = 12, units = "cm",   # Dimensions -->
-<!--   dpi = 300                               # Resolution -->
-<!-- ) -->
+ggsave("outputs/pro_2025_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
+#st_write(pro_level_benth_poly, "outputs/pro_level.gpkg")
 
-<!-- #make a line plot of EPL Index using 2018 and 2014 timepoints - request Natasha to impve this or add to package. -->
 
-<!-- biome_colors <- c( -->
-<!--   "Albany Thicket" = "darkgreen", -->
-<!--   "Azonal" = "blue", -->
-<!--   "Desert" =  "darkgrey", -->
-<!--   "Forest" =  "darkblue", -->
-<!--   "Fynbos"  =  "purple", -->
-<!--   "Grassland"  = "green3", -->
-<!--   "IOCB"  = "orange", -->
-<!--   "Nama-Karoo" = "brown1", -->
-<!--   "Savanna"  =  "brown", -->
-<!--   "Succulent Karoo"  = "yellow3", -->
-<!--   "Total" = "black" -->
-<!-- ) -->
 
-<!-- EPLI <- epl2024inv_sum %>% -->
-<!--   select(T_BIOME, EPLI) %>%  -->
-<!--   rename(EPLI24 = EPLI) %>% -->
-<!--    left_join(epl2018inv_sum, by ="T_BIOME") %>% -->
-<!--    rename(EPLI18 = EPLI) %>% -->
-<!--    rename(Biome = T_BIOME) %>% -->
-<!--   select(Biome,EPLI18, EPLI24) %>% -->
-<!--   pivot_longer(cols = c(2,3), names_to = "Year", values_to = "EPLI") %>% -->
-<!--     mutate(Year = case_when( -->
-<!--     Year == "EPLI18" ~ "2018", -->
-<!--     Year == "EPLI24" ~ "2024", -->
-<!--     TRUE ~ Year -->
-<!--   )) -->
+##donut plot
 
-<!--   epli_line_plot <- ggplot(EPLI, aes(x = Year, y = EPLI, group = Biome, color = Biome)) + -->
-<!--   scale_color_manual(values = biome_colors) +  -->
-<!--     geom_line(size = 1.2) + -->
-<!--   geom_point(size = 2) + -->
-<!--   theme_minimal() + -->
-<!--   labs(x = "Year", y = "EPLI") + -->
-<!--   scale_x_discrete(limits = c("2018", "2024")) -->
+donut_2025 <- pro_level_benth_poly %>% 
+  st_drop_geometry() %>% 
+  count(ecosystem_type,pro_lvl_2025_30) %>% 
+  pivot_wider(names_from = pro_lvl_2025_30, values_from = n) %>% 
+  select(ecosystem_type, `Well Protected`,
+         `Moderately Protected`, 
+         `Poorly Protected`,
+         `Not Protected`)
 
-<!--   epli_line_plot -->
 
-<!--   #export the graph -->
-<!-- ggsave( -->
-<!--   filename = "outputs/epli_line_plot.jpeg", # File name -->
-<!--   plot = epli_line_plot,                   # Plot object -->
-<!--   device = "jpeg",                        # File format -->
-<!--   width = 16, height = 12, units = "cm",   # Dimensions -->
-<!--   dpi = 300                               # Resolution -->
-<!-- ) -->
-<!-- ``` -->
+nbaR::nba_plot(DF = donut_2025,
+         GROUPS = ecosystem_type,
+         COLS = 2:5,
+         CHRT = "donut",
+         NUM = TRUE,
+         LAB = "Benthic protection level 2025",
+         GRP = FALSE,
+         SAVE = "outputs/pro_2025_donut_benth")
 
-<!-- ## References -->
+```
 
-<!-- ::: {#refs} -->
-<!-- ::: -->
+##The protection level map and donut plot results of the 2018 method using a 30% target
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+###2018 method with 30%
+
+pro_level_benth_poly <- mem %>% 
+  select(ecosystem_type) %>% 
+  right_join(eco_mpa_cnd_2023)
+
+pro_level <- nbaR::nba_map(pro_level_benth_poly,
+                      COLS = NULL, 
+                      geometry, 
+                      CAP = "Benthic protection level 2018 using 30%", 
+                      FILL = pro_lvl_2018_30)
+pro_level+
+  geom_sf(data=pro_level_benth_poly, colour = "black", fill = NA)+
+  theme(panel.border = element_blank())
+
+ggsave("outputs/pro_2018_30_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
+#st_write(pro_level_benth_poly, "outputs/pro_level.gpkg")
+
+
+
+##donut plot
+
+donut_2018_30 <- pro_level_benth_poly %>% 
+  st_drop_geometry() %>% 
+  count(ecosystem_type,pro_lvl_2018_30) %>% 
+  pivot_wider(names_from = pro_lvl_2018_30, values_from = n) %>% 
+  select(ecosystem_type, `Well Protected`,
+         `Moderately Protected`, 
+         `Poorly Protected`,
+         `Not Protected`)
+
+
+nbaR::nba_plot(DF = donut_2018_30,
+         GROUPS = ecosystem_type,
+         COLS = 2:5,
+         CHRT = "donut",
+         NUM = TRUE,
+         LAB = "Benthic protection level 2018 using 30%",
+         GRP = FALSE,
+         SAVE = "outputs/pro_2018_30_donut_benth")
+
+
+```
+
+##The protection level map and donut plot of 2018 results (using the 20% target)
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+###2018 method with 30%
+
+pro_level_benth_poly <- mem %>% 
+  select(ecosystem_type) %>% 
+  right_join(eco_mpa_cnd_2023)
+
+pro_level <- nbaR::nba_map(pro_level_benth_poly,
+                      COLS = NULL, 
+                      geometry, 
+                      CAP = "Benthic protection level 2018 using 20%", 
+                      FILL = pro_lvl_2018_20)
+pro_level+
+  geom_sf(data=pro_level_benth_poly, colour = "black", fill = NA)+
+  theme(panel.border = element_blank())
+
+ggsave("outputs/pro_2018_20_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
+#st_write(pro_level_benth_poly, "outputs/pro_level.gpkg")
+
+
+
+##donut plot
+
+donut_2018_20 <- pro_level_benth_poly %>% 
+  st_drop_geometry() %>% 
+  count(ecosystem_type,pro_lvl_2018_20) %>% 
+  pivot_wider(names_from = pro_lvl_2018_20, values_from = n) %>% 
+  select(ecosystem_type, `Well Protected`,
+         `Moderately Protected`, 
+         `Poorly Protected`,
+         `Not Protected`)
+
+
+nbaR::nba_plot(DF = donut_2018_20,
+         GROUPS = ecosystem_type,
+         COLS = 2:5,
+         CHRT = "donut",
+         NUM = TRUE,
+         LAB = "Benthic protection level 2018 using 20%",
+         GRP = FALSE,
+         SAVE = "outputs/pro_2018_20_donut_benth")
+
+
+
+
+#make a line plot of EPL Index using 2018 and 2014 timepoints - request Natasha to impve this or add to package.
+# 
+# biome_colors <- c(
+#   "Albany Thicket" = "darkgreen",
+#   "Azonal" = "blue",
+#   "Desert" =  "darkgrey",
+#   "Forest" =  "darkblue",
+#   "Fynbos"  =  "purple",
+#   "Grassland"  = "green3",
+#   "IOCB"  = "orange",
+#   "Nama-Karoo" = "brown1",
+#   "Savanna"  =  "brown",
+#   "Succulent Karoo"  = "yellow3",
+#   "Total" = "black"
+# )
+# 
+# EPLI <- epl2024inv_sum %>%
+#   select(T_BIOME, EPLI) %>%
+#   rename(EPLI24 = EPLI) %>%
+#    left_join(epl2018inv_sum, by ="T_BIOME") %>%
+#    rename(EPLI18 = EPLI) %>%
+#    rename(Biome = T_BIOME) %>%
+#   select(Biome,EPLI18, EPLI24) %>%
+#   pivot_longer(cols = c(2,3), names_to = "Year", values_to = "EPLI") %>%
+#     mutate(Year = case_when(
+#     Year == "EPLI18" ~ "2018",
+#     Year == "EPLI24" ~ "2024",
+#     TRUE ~ Year
+#   ))
+# 
+#   epli_line_plot <- ggplot(EPLI, aes(x = Year, y = EPLI, group = Biome, color = Biome)) +
+#   scale_color_manual(values = biome_colors) +
+#     geom_line(size = 1.2) +
+#   geom_point(size = 2) +
+#   theme_minimal() +
+#   labs(x = "Year", y = "EPLI") +
+#   scale_x_discrete(limits = c("2018", "2024"))
+# 
+#   epli_line_plot
+# 
+#   #export the graph
+# ggsave(
+#   filename = "outputs/epli_line_plot.jpeg", # File name
+#   plot = epli_line_plot,                   # Plot object
+#   device = "jpeg",                        # File format
+#   width = 16, height = 12, units = "cm",   # Dimensions
+#   dpi = 300                               # Resolution
+# )
+```
+
+## References
+
+::: {#refs}
+:::
