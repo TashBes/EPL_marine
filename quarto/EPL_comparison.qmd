@@ -107,6 +107,8 @@ mpa_fl <- "^SANBI_PA_2023Q4_July2024.shp$"
 
 cnd_fl <- paste0("condition_mpa_", year, ".csv")
 
+#cnd_fl <- paste0("condition_scores_150_", year, ".csv")
+
 ```
 
 ### Data sources & import:
@@ -163,7 +165,7 @@ check <- as.data.frame(st_is_valid(mpa, reason=T))
 
 ### Data preparation:
 
-Subset protected area data to only include Marine Protected Areas using TYPE = "Marine Protected Area" and transform the CRS to match the ecosystem map. For both the ecosystem map and MPA layer combine the polygons of each ecosystem and protected area together into multipolygons to simplify the data. 
+Transform the CRS to match the ecosystem map. For both the ecosystem map and MPA layer combine the polygons of each ecosystem and protected area together into multipolygons to simplify the data. 
 
 ```{r}
 #| message: false
@@ -183,7 +185,7 @@ mpa <- st_transform(mpa, crs = st_crs(mem))
 
 ##take only the marine and combine zones so one row per mpa
 mpa <- mpa %>% 
-  filter(TYPE == "Marine Protected Area") %>% 
+#  filter(TYPE == "Marine Protected Area") %>% 
   group_by(CUR_NME) %>% 
   summarize(geometry = st_union(geometry))
 
@@ -300,21 +302,50 @@ cnd <- read.csv(list.files(path="data", pattern=cnd_fl, recursive = T, full.name
 eco_mpa_cnd <- cnd %>% 
   right_join(eco_mpa_pro)%>% 
   #
-  #scale each condition percent by its %degradation score 
+  #rename
   #
-  mutate(natural_wd = `1`,
-         mod_deg_wd = `2`*0.5,
-         sev_deg_wd = `3`*0.3,
-         v_sev_deg_wd = `4`*0.1) %>% 
+  rename(natural = `1`,
+         mod_deg = `2`, 
+         sev_deg = `3`, 
+         vsev_deg = `4`) %>% 
+  #
+  #get the % of the whole within the mpa
+  #
+  mutate(natural_in_mpa = natural*percent_protected,
+         mod_in_mpa =mod_deg*percent_protected,
+         sev_in_mpa =sev_deg*percent_protected ) %>% 
+  #
+  #scale each condition percent by its %degradation score light
+  #
+  mutate(natural_light = natural,
+         mod_deg_light = mod_deg*0.5,
+         sev_deg_light = sev_deg*0.3,
+         v_sev_deg_light = vsev_deg*0.1) %>% 
   #
   #get the total percentage
   #
-  mutate(total_perc = sum(c_across(natural_wd:v_sev_deg_wd), na.rm = T), 
+  mutate(light_perc = sum(c_across(natural_light:v_sev_deg_light), na.rm = T), 
          .by = ecosystem_type) %>% 
   #
   #get new protection level
   #
-  mutate(perc_pro_cnd = percent_protected*total_perc)
+  mutate(perc_pro_light = percent_protected*light_perc) %>% 
+  #
+  #scale each condition percent by its %degradation score medium 
+  #
+  mutate(natural_med = natural,
+         mod_deg_med = mod_deg*0.4,
+         sev_deg_med = sev_deg*0.2,
+         v_sev_deg_med = vsev_deg*0.05) %>% 
+  #
+  #get the total percentage
+  #
+  mutate(med_perc = sum(c_across(natural_med:v_sev_deg_med), na.rm = T), 
+         .by = ecosystem_type) %>% 
+  #
+  #get new protection level
+  #
+  mutate(perc_pro_med = percent_protected*med_perc)
 
 write.csv(eco_mpa_cnd, paste0("outputs/pro_level_", year, ".csv"))
 
@@ -333,71 +364,129 @@ write.csv(eco_mpa_cnd, paste0("outputs/pro_level_", year, ".csv"))
 #pro_2023 <- read_csv(paste0("outputs/pro_level_", year, ".csv"))
 pro_2023 <- eco_mpa_cnd
 
-## calculate protection based on a threshold for 30% (this was not done in the 2019 assessment) 
+## calculate protection based on 2018 NBA method
 eco_mpa_cnd_2023 <- pro_2023 %>% 
   mutate(across(everything(), .fns = ~replace_na(.,0))) %>% 
   mutate(
-    pro_lvl_2018_20 = case_when(
-      percent_protected >= 20 & `1` >= 0.2 ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
-      percent_protected >= 20 & `1` < 0.3 ~ "Moderately Protected",
+    pro_lvl_2019_20 = case_when(
+      percent_protected >= 20 & natural_in_mpa >= 20 ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+      percent_protected >= 20 & natural_in_mpa < 20 ~ "Moderately Protected",
       percent_protected >= 10 & percent_protected < 20 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
       percent_protected > 0.2 & percent_protected < 10 ~ "Poorly Protected",## if protection is more than or equal to 0.2% and less than 15% classify the protection level category as "Poorly Protected"
       percent_protected <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
     )) %>% 
+  
+  
+  ##based on 2018 NBA method with 30%
   mutate(
-    pro_lvl_2018_30 = case_when(
-      percent_protected >= 30 & `1` >= 0.3 ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
-      percent_protected >= 30 & `1` < 0.3 ~ "Moderately Protected",
+    pro_lvl_2019_30 = case_when(
+      percent_protected >= 30 & natural_in_mpa >= 30 ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+      percent_protected >= 30 & natural_in_mpa < 30 ~ "Moderately Protected",
       percent_protected >= 20 & percent_protected < 30 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
       percent_protected > 0.2 & percent_protected < 20 ~ "Poorly Protected",## if protection is more than or equal to 0.2% and less than 15% classify the protection level category as "Poorly Protected"
       percent_protected <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
     )) %>% 
+  
+  
+  ### based on combo of Andrew and 2018 NBA (Tash light method) with 30%
   mutate(
-    pro_lvl_2025_30 = case_when(
-      perc_pro_cnd >= 30 & `1` >= 0.3  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
-      perc_pro_cnd >= 30 & `1` < 0.3 ~ "Moderately Protected",
-      perc_pro_cnd >= 20 & perc_pro_cnd < 30 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
-      perc_pro_cnd > 0.2 & perc_pro_cnd < 20 ~ "Poorly Protected",## if protection is more than or equal to 0.2% and less than 15% classify the protection level category as "Poorly Protected"
-      perc_pro_cnd <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
+    pro_lvl_tash_light = case_when(
+      perc_pro_light >= 30 & natural_in_mpa >= 30  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+      perc_pro_light >= 30 & natural_in_mpa < 30 ~ "Moderately Protected",
+      perc_pro_light >= 20 & perc_pro_light < 30 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
+      perc_pro_light > 0.2 & perc_pro_light < 20 ~ "Poorly Protected",## if protection is more than or equal to 0.2% and less than 15% classify the protection level category as "Poorly Protected"
+      perc_pro_light <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
+    )) %>% 
+  
+  
+  ### based on the Tash but medium condition values instead of light
+  mutate(
+    pro_lvl_tash_med = case_when(
+      perc_pro_med >= 30 & natural_in_mpa >= 30  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+      perc_pro_med >= 30 & natural_in_mpa < 30 ~ "Moderately Protected",
+      perc_pro_med >= 20 & perc_pro_med < 30 ~ "Moderately Protected", ## ifprotection is more than or equal to 15% and less than 20% classify the protection level category as "Moderately Protected"
+      perc_pro_med > 0.2 & perc_pro_med < 20 ~ "Poorly Protected",## if protection is more than or equal to 0.2% and less than 15% classify the protection level category as "Poorly Protected"
+      perc_pro_med <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
+    )) %>% 
+  
+  
+  ### based on the Laras method (heavy)
+  mutate(
+    pro_lvl_lara = case_when(
+      natural_in_mpa >= 30  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+      (natural_in_mpa+mod_in_mpa) >= 20 ~ "Moderately Protected",
+      (natural_in_mpa+mod_in_mpa+sev_in_mpa) > 0.2 ~ "Poorly Protected",
+      (natural_in_mpa+mod_in_mpa+sev_in_mpa) <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
     )) %>% 
   arrange(ecosystem_type) %>% 
   
   ##see how many increased and how many decreased
-  mutate(level_2018_20 = case_when(
-    str_detect(pro_lvl_2018_20, "Well Protected") ~ 4, 
-    str_detect(pro_lvl_2018_20, "Moderately Protected") ~ 3, 
-    str_detect(pro_lvl_2018_20, "Poorly Protected") ~ 2,
-    str_detect(pro_lvl_2018_20, "Not Protected") ~ 1,
+  mutate(level_2019_20 = case_when(
+    str_detect(pro_lvl_2019_20, "Well Protected") ~ 4, 
+    str_detect(pro_lvl_2019_20, "Moderately Protected") ~ 3, 
+    str_detect(pro_lvl_2019_20, "Poorly Protected") ~ 2,
+    str_detect(pro_lvl_2019_20, "Not Protected") ~ 1,
     TRUE ~ 0  # otherwise, Least Concern
   )) %>% 
-  mutate(level_2018_30 = case_when(
-    str_detect(pro_lvl_2018_30, "Well Protected") ~ 4, 
-    str_detect(pro_lvl_2018_30, "Moderately Protected") ~ 3, 
-    str_detect(pro_lvl_2018_30, "Poorly Protected") ~ 2,
-    str_detect(pro_lvl_2018_30, "Not Protected") ~ 1,
+  mutate(level_2019_30 = case_when(
+    str_detect(pro_lvl_2019_30, "Well Protected") ~ 4, 
+    str_detect(pro_lvl_2019_30, "Moderately Protected") ~ 3, 
+    str_detect(pro_lvl_2019_30, "Poorly Protected") ~ 2,
+    str_detect(pro_lvl_2019_30, "Not Protected") ~ 1,
     TRUE ~ 0  # otherwise, Least Concern
   )) %>% 
-  mutate(level_2025_30 = case_when(
-    str_detect(pro_lvl_2025_30, "Well Protected") ~ 4, 
-    str_detect(pro_lvl_2025_30, "Moderately Protected") ~ 3, 
-    str_detect(pro_lvl_2025_30, "Poorly Protected") ~ 2,
-    str_detect(pro_lvl_2025_30, "Not Protected") ~ 1,
+  mutate(level_tash_light = case_when(
+    str_detect(pro_lvl_tash_light, "Well Protected") ~ 4, 
+    str_detect(pro_lvl_tash_light, "Moderately Protected") ~ 3, 
+    str_detect(pro_lvl_tash_light, "Poorly Protected") ~ 2,
+    str_detect(pro_lvl_tash_light, "Not Protected") ~ 1,
+    TRUE ~ 0  # otherwise, Least Concern
+  )) %>% 
+  mutate(level_tash_med = case_when(
+    str_detect(pro_lvl_tash_med, "Well Protected") ~ 4, 
+    str_detect(pro_lvl_tash_med, "Moderately Protected") ~ 3, 
+    str_detect(pro_lvl_tash_med, "Poorly Protected") ~ 2,
+    str_detect(pro_lvl_tash_med, "Not Protected") ~ 1,
+    TRUE ~ 0  # otherwise, Least Concern
+  )) %>% 
+  mutate(level_lara = case_when(
+    str_detect(pro_lvl_lara, "Well Protected") ~ 4, 
+    str_detect(pro_lvl_lara, "Moderately Protected") ~ 3, 
+    str_detect(pro_lvl_lara, "Poorly Protected") ~ 2,
+    str_detect(pro_lvl_lara, "Not Protected") ~ 1,
     TRUE ~ 0  # otherwise, Least Concern
   )) %>% 
   
-  mutate(difference_2018_30_20 = if_else(level_2018_20 != level_2018_30, 
-                              if_else(level_2018_20 < level_2018_30, "increase", "decrease"), 
+  mutate(difference_2019_30_20 = if_else(level_2019_20 != level_2019_30, 
+                              if_else(level_2019_20 < level_2019_30, "increase", "decrease"), 
                               "same"))%>% 
   
-  mutate(difference_2018_2025_30 = if_else(level_2018_30 != level_2025_30, 
-                              if_else(level_2018_30 < level_2025_30, "increase", "decrease"), 
+  mutate(difference_2019_tash_light = if_else(level_2019_30 != level_tash_light, 
+                              if_else(level_2019_30 < level_tash_light, "increase", "decrease"), 
+                              "same")) %>% 
+  
+  mutate(difference_2019_tash_med = if_else(level_2019_30 != level_tash_med, 
+                              if_else(level_2019_30 < level_tash_med, "increase", "decrease"), 
+                              "same")) %>% 
+  
+  mutate(difference_2019_lara = if_else(level_2019_30 != level_lara, 
+                              if_else(level_2019_30 < level_lara, "increase", "decrease"), 
                               "same"))
 
-EPL_tbl <- eco_mpa_cnd_2023 %>% 
-  select(-c(`1`, `2`, `3`, `4`, total,
-            level_2018_20, level_2018_30, level_2025_30)) 
+EPL_tbl <- eco_mpa_cnd_2023 %>%
+  select(ecosystem_type, percent_protected, perc_pro_light, 
+         perc_pro_med, pro_lvl_2019_20, 
+         pro_lvl_2019_30, pro_lvl_tash_light,
+         pro_lvl_tash_med,
+         pro_lvl_lara,
+         difference_2019_30_20, 
+         difference_2019_tash_light,
+         difference_2019_tash_med,
+         difference_2019_lara)
+  # select(-c(total,
+  #           level_2019_20, level_2019_30, level_2025_30)) 
 
-write.csv(EPL_tbl, "outputs/EPL_tbl_09_06_2025.csv")
+write.csv(EPL_tbl, "outputs/EPL_tbl_12_06_2025_updated.csv")
   
 EPL_tbl%>% 
   nbaR::nba_tbl_colr(COL = pro_lvl_2025_30) 
@@ -562,7 +651,7 @@ nbaR::nba_plot(DF = donut_2025,
 #| echo: false
 #| message: false
 #| warning: false
-###2018 method with 30%
+###2019 method with 30%
 
 pro_level_benth_poly <- mem %>% 
   select(ecosystem_type) %>% 
@@ -571,8 +660,8 @@ pro_level_benth_poly <- mem %>%
 pro_level <- nbaR::nba_map(pro_level_benth_poly,
                       COLS = NULL, 
                       geometry, 
-                      CAP = "Benthic protection level 2018 using 30%", 
-                      FILL = pro_lvl_2018_30)
+                      CAP = "Benthic protection level 2019 using 30%", 
+                      FILL = pro_lvl_2019_30)
 pro_level+
   geom_sf(data=pro_level_benth_poly, colour = "black", fill = NA)+
   theme(panel.border = element_blank())
@@ -586,8 +675,8 @@ ggsave("outputs/pro_2018_30_map_benth.png", height = 12, width = 18, units = 'cm
 
 donut_2018_30 <- pro_level_benth_poly %>% 
   st_drop_geometry() %>% 
-  count(ecosystem_type,pro_lvl_2018_30) %>% 
-  pivot_wider(names_from = pro_lvl_2018_30, values_from = n) %>% 
+  count(ecosystem_type,pro_lvl_2019_30) %>% 
+  pivot_wider(names_from = pro_lvl_2019_30, values_from = n) %>% 
   select(ecosystem_type, `Well Protected`,
          `Moderately Protected`, 
          `Poorly Protected`,
@@ -599,9 +688,9 @@ nbaR::nba_plot(DF = donut_2018_30,
          COLS = 2:5,
          CHRT = "donut",
          NUM = TRUE,
-         LAB = "Benthic protection level 2018 using 30%",
+         LAB = "Benthic protection level 2019 using 30%",
          GRP = FALSE,
-         SAVE = "outputs/pro_2018_30_donut_benth")
+         SAVE = "outputs/pro_2019_30_donut_benth")
 
 
 ```
@@ -612,7 +701,7 @@ nbaR::nba_plot(DF = donut_2018_30,
 #| echo: false
 #| message: false
 #| warning: false
-###2018 method with 30%
+###2019 method with 30%
 
 pro_level_benth_poly <- mem %>% 
   select(ecosystem_type) %>% 
@@ -621,8 +710,8 @@ pro_level_benth_poly <- mem %>%
 pro_level <- nbaR::nba_map(pro_level_benth_poly,
                       COLS = NULL, 
                       geometry, 
-                      CAP = "Benthic protection level 2018 using 20%", 
-                      FILL = pro_lvl_2018_20)
+                      CAP = "Benthic protection level 2019 using 20%", 
+                      FILL = pro_lvl_2019_20)
 pro_level+
   geom_sf(data=pro_level_benth_poly, colour = "black", fill = NA)+
   theme(panel.border = element_blank())
@@ -636,8 +725,8 @@ ggsave("outputs/pro_2018_20_map_benth.png", height = 12, width = 18, units = 'cm
 
 donut_2018_20 <- pro_level_benth_poly %>% 
   st_drop_geometry() %>% 
-  count(ecosystem_type,pro_lvl_2018_20) %>% 
-  pivot_wider(names_from = pro_lvl_2018_20, values_from = n) %>% 
+  count(ecosystem_type,pro_lvl_2019_20) %>% 
+  pivot_wider(names_from = pro_lvl_2019_20, values_from = n) %>% 
   select(ecosystem_type, `Well Protected`,
          `Moderately Protected`, 
          `Poorly Protected`,
@@ -649,9 +738,9 @@ nbaR::nba_plot(DF = donut_2018_20,
          COLS = 2:5,
          CHRT = "donut",
          NUM = TRUE,
-         LAB = "Benthic protection level 2018 using 20%",
+         LAB = "Benthic protection level 2019 using 20%",
          GRP = FALSE,
-         SAVE = "outputs/pro_2018_20_donut_benth")
+         SAVE = "outputs/pro_2019_20_donut_benth")
 
 
 
