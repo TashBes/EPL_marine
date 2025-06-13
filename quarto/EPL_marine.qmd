@@ -83,7 +83,7 @@ google-scholar: true
 
 ### Approach
 
-Compariosn of Marine Ecosystem Protection Level assessments with the inclusion of additional steps to utilise condition of ecosystems within protected areas. This assessment is for 2025 and compares results from the new methods to those from the 2018 assessment. It reveals the degree to which Protected Area targets have been met for each marine ecosystem type (ecosystem representation). The analysis includes several new method to address the effectiveness of MPAs by down weighting the contribution to targets for areas based on their degradation.
+Marine Ecosystem Protection Level assessment with the inclusion of additional steps to utilise condition of ecosystems within protected areas. This assessment is for 2025 and compares results from the new method to those from the 2018 assessment. It reveals the degree to which Protected Area targets have been met for each marine ecosystem type (ecosystem representation). The analysis includes a new method to address the effectiveness of MPAs by down weighting the contribution to targets for areas based on their degradation.
 
 The protection level target has also increased from 20% to 30% in this assessment. Therefore it is expected that some ecosystems will experience a decrease in protection level despite no changes to protected area coverage since the 2018 assessment.
 
@@ -107,8 +107,7 @@ mpa_fl <- "^SANBI_PA_2023Q4_July2024.shp$"
 
 cnd_fl <- paste0("condition_mpa_", year, ".csv")
 
-
-#cnd_fl <- paste0("ecosystem_condition_index_", year, ".csv")
+#cnd_fl <- paste0("condition_scores_150_", year, ".csv")
 
 ```
 
@@ -166,7 +165,7 @@ check <- as.data.frame(st_is_valid(mpa, reason=T))
 
 ### Data preparation:
 
-Transform the CRS to match the ecosystem map. For both the ecosystem map and MPA layer the polygons of each ecosystem and protected area were combined together into multipolygons to simplify the data. 
+Transform the CRS to match the ecosystem map. For both the ecosystem map and MPA layer combine the polygons of each ecosystem and protected area together into multipolygons to simplify the data. 
 
 ```{r}
 #| message: false
@@ -203,7 +202,7 @@ mem <- mem %>%
 
 *Get the area of each ecosystem within an MPA.*
 
-The intersection of the MPA's and the ecosystems was computed and the proportion of each ecosystem that falls within an MPA was calculated to get percent protected for each ecosystem.
+Get the intersection of the MPA's and the ecosystems, and then calculate the proportion of each ecosystem that falls within an MPA.
 
 
 ```{r}
@@ -579,9 +578,7 @@ diff_Lara_med <- EPL_tbl%>%
   arrange(pro_lvl_2019_20, ecosystem_type) %>% 
   nbaR::nba_tbl_colr(COL = difference_2019_tash_med) 
 
-pro_lvl_tash_med <- EPL_tbl %>%
-  select(ecosystem_type, pro_lvl_tash_med, difference_2019_tash_med,
-         difference_2019_30_20)
+
 ```
 
 ##All 37 ecosystems that decreased protection level due to the 30% increase
