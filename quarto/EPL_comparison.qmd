@@ -130,7 +130,7 @@ cnd_mpa <- st_read(list.files(path="data", pattern=cnd_fl, recursive = T, full.n
 ##connect to database
 con <- sql_con("mem_dwh")
 
-mem <- st_read(dsn = con, query = paste0("SELECT ecosystem_type,realm_primary_getl1, eco_extent_km2_",year, ", geometry FROM dim_poly LEFT JOIN fact_ecosystem ON  fk_poly_b_ecosystem_id = pk_ecosystem_id LEFT JOIN dim_eco_class ON fk_eco_eco_class_id_",year, "  = pk_eco_class_id WHERE version = ", "'", year, "'"))%>%
+mem <- st_read(dsn = con, query = paste0("SELECT ecosystem_type,realm_primary_getl1, eco_description_2023, ecosystem_functional_type_getl3, eco_extent_km2_",year, ", geometry FROM dim_poly LEFT JOIN fact_ecosystem ON  fk_poly_b_ecosystem_id = pk_ecosystem_id LEFT JOIN dim_eco_class ON fk_eco_eco_class_id_",year, "  = pk_eco_class_id WHERE version = ", "'", year, "'"))%>%
   filter(ecosystem_type != "unknown") %>%
   filter(realm_primary_getl1 != "Estuary")
 
@@ -193,7 +193,7 @@ mpa <- mpa %>%
 
 ##simplify mem layer to one row per ecosystem
 mem <- mem %>%
-  group_by(ecosystem_type) %>%
+  group_by(ecosystem_type, ecosystem_functional_type_getl3) %>%
   summarise(eco_extent_km2 = mean(!! rlang::sym(paste0("eco_extent_km2_", year))), ## need to fix this paste0("eco_extent_km2_", year)
             geometry = st_union(geometry))
 
@@ -736,19 +736,19 @@ library(nbaR)
 # Use NBA package to make EPL graph (need high res output for booklet)
 #######connect back to pro level
 pro_level_benth_poly <- mem %>% 
-  select(ecosystem_type) %>% 
+  select(ecosystem_type, ecosystem_functional_type_getl3) %>% 
   right_join(eco_mpa_cnd_2023)
 
 pro_level <- nbaR::nba_map(pro_level_benth_poly,
                       COLS = NULL, 
                       geometry, 
-                      CAP = "Benthic protection level 2025", 
+                      CAP = "Benthic protection level lite 2025", 
                       FILL = pro_lvl_tash_light)
 pro_level+
   geom_sf(data=pro_level_benth_poly, colour = "black", fill = NA)+
   theme(panel.border = element_blank())
 
-ggsave("outputs/pro_2025_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
+ggsave("outputs/EPL_lite_2025_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
 #st_write(pro_level_benth_poly, "outputs/pro_level.gpkg")
 
 
@@ -774,7 +774,108 @@ nbaR::nba_plot(DF = donut_2025,
          GRP = FALSE,
          SAVE = "outputs/pro_2025_donut_benth")
 
+
+##efg plot
+
+efg_2025 <- pro_level_benth_poly %>% 
+  st_drop_geometry() %>% 
+  ungroup() %>% 
+  count(ecosystem_functional_type_getl3, pro_lvl_tash_light) %>% 
+  pivot_wider(names_from = pro_lvl_tash_light, values_from = n) %>% 
+  select(ecosystem_functional_type_getl3, `Well Protected`,
+         `Moderately Protected`, 
+         `Poorly Protected`,
+         `Not Protected`)
+
+
+nbaR::nba_plot(DF = efg_2025,
+         GROUPS = ecosystem_functional_type_getl3,
+         COLS = 2:5,
+         CHRT = "bar",
+         NUM = TRUE,
+         LAB = "Benthic protection level lite 2025",
+         GRP = FALSE,
+         SAVE = "outputs/EPL_lite_2025_efg_benth")
+
 ```
+
+## tash medium
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+# to avoid rerunning spatial analysis load data from file...
+#data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2024_biome_invasives2.csv")
+#data <- read_csv("C:/Rdata/EPL_terr/outputs/results_df_EPL_2018_biome_invasives2.csv")
+
+# load nbaR package : first run this in console devtools::install_github("SANBI-NBA/nbaR")
+library(nbaR)
+
+# Use NBA package to make EPL graph (need high res output for booklet)
+#######connect back to pro level
+pro_level_benth_poly <- mem %>% 
+  select(ecosystem_type,ecosystem_functional_type_getl3) %>% 
+  right_join(eco_mpa_cnd_2023)
+
+pro_level <- nbaR::nba_map(pro_level_benth_poly,
+                      COLS = NULL, 
+                      geometry, 
+                      CAP = "Benthic protection level medium 2025", 
+                      FILL = pro_lvl_tash_med)
+pro_level+
+  geom_sf(data=pro_level_benth_poly, colour = "black", fill = NA)+
+  theme(panel.border = element_blank())
+
+ggsave("outputs/EPL_medium_2025_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
+#st_write(pro_level_benth_poly, "outputs/pro_level.gpkg")
+
+
+
+##donut plot
+
+donut_2025 <- pro_level_benth_poly %>% 
+  st_drop_geometry() %>% 
+  count(ecosystem_type,pro_lvl_tash_light) %>% 
+  pivot_wider(names_from = pro_lvl_tash_light, values_from = n) %>% 
+  select(ecosystem_type, `Well Protected`,
+         `Moderately Protected`, 
+         `Poorly Protected`,
+         `Not Protected`)
+
+
+nbaR::nba_plot(DF = donut_2025,
+         GROUPS = ecosystem_type,
+         COLS = 2:5,
+         CHRT = "donut",
+         NUM = TRUE,
+         LAB = "Benthic protection level 2025",
+         GRP = FALSE,
+         SAVE = "outputs/pro_2025_donut_benth")
+
+
+##efg plot
+
+efg_2025 <- pro_level_benth_poly %>% 
+  st_drop_geometry() %>% 
+  ungroup() %>% 
+  count(ecosystem_functional_type_getl3, pro_lvl_tash_med) %>% 
+  pivot_wider(names_from = pro_lvl_tash_med, values_from = n) %>% 
+  select(ecosystem_functional_type_getl3, `Well Protected`,
+         `Moderately Protected`, 
+         `Poorly Protected`,
+         `Not Protected`)
+
+
+nbaR::nba_plot(DF = efg_2025,
+         GROUPS = ecosystem_functional_type_getl3,
+         COLS = 2:5,
+         CHRT = "bar",
+         NUM = TRUE,
+         LAB = "Benthic protection level medium 2025",
+         GRP = FALSE,
+         SAVE = "outputs/EPL_medium_2025_efg_benth")
+```
+
 
 ##The protection level map and donut plot results of the 2018 method using a 30% target
 
@@ -785,7 +886,7 @@ nbaR::nba_plot(DF = donut_2025,
 ###2019 method with 30%
 
 pro_level_benth_poly <- mem %>% 
-  select(ecosystem_type) %>% 
+  select(ecosystem_type, ecosystem_functional_type_getl3) %>% 
   right_join(eco_mpa_cnd_2023)
 
 pro_level <- nbaR::nba_map(pro_level_benth_poly,
@@ -797,7 +898,7 @@ pro_level+
   geom_sf(data=pro_level_benth_poly, colour = "black", fill = NA)+
   theme(panel.border = element_blank())
 
-ggsave("outputs/pro_2018_30_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
+ggsave("outputs/EPL_2019_30_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
 #st_write(pro_level_benth_poly, "outputs/pro_level.gpkg")
 
 
@@ -824,6 +925,28 @@ nbaR::nba_plot(DF = donut_2018_30,
          SAVE = "outputs/pro_2019_30_donut_benth")
 
 
+##efg plot
+
+efg_2025 <- pro_level_benth_poly %>% 
+  st_drop_geometry() %>% 
+  ungroup() %>% 
+  count(ecosystem_functional_type_getl3, pro_lvl_2019_30) %>% 
+  pivot_wider(names_from = pro_lvl_2019_30, values_from = n) %>% 
+  select(ecosystem_functional_type_getl3, `Well Protected`,
+         `Moderately Protected`, 
+         `Poorly Protected`,
+         `Not Protected`)
+
+
+nbaR::nba_plot(DF = efg_2025,
+         GROUPS = ecosystem_functional_type_getl3,
+         COLS = 2:5,
+         CHRT = "bar",
+         NUM = TRUE,
+         LAB = "Benthic protection level 2019 using 30%",
+         GRP = FALSE,
+         SAVE = "outputs/EPL_30_2019_efg_benth")
+
 ```
 
 ##The protection level map and donut plot of 2018 results (using the 20% target)
@@ -835,7 +958,7 @@ nbaR::nba_plot(DF = donut_2018_30,
 ###2019 method with 30%
 
 pro_level_benth_poly <- mem %>% 
-  select(ecosystem_type) %>% 
+  select(ecosystem_type, ecosystem_functional_type_getl3) %>% 
   right_join(eco_mpa_cnd_2023)
 
 pro_level <- nbaR::nba_map(pro_level_benth_poly,
@@ -847,7 +970,7 @@ pro_level+
   geom_sf(data=pro_level_benth_poly, colour = "black", fill = NA)+
   theme(panel.border = element_blank())
 
-ggsave("outputs/pro_2018_20_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
+ggsave("outputs/EPL_2019_20_map_benth.png", height = 12, width = 18, units = 'cm',  bg = "white", dpi = 350)
 #st_write(pro_level_benth_poly, "outputs/pro_level.gpkg")
 
 
@@ -874,6 +997,27 @@ nbaR::nba_plot(DF = donut_2018_20,
          SAVE = "outputs/pro_2019_20_donut_benth")
 
 
+##efg plot
+
+efg_2025 <- pro_level_benth_poly %>% 
+  st_drop_geometry() %>% 
+  ungroup() %>% 
+  count(ecosystem_functional_type_getl3, pro_lvl_2019_20) %>% 
+  pivot_wider(names_from = pro_lvl_2019_20, values_from = n) %>% 
+  select(ecosystem_functional_type_getl3, `Well Protected`,
+         `Moderately Protected`, 
+         `Poorly Protected`,
+         `Not Protected`)
+
+
+nbaR::nba_plot(DF = efg_2025,
+         GROUPS = ecosystem_functional_type_getl3,
+         COLS = 2:5,
+         CHRT = "bar",
+         NUM = TRUE,
+         LAB = "Benthic protection level 2019 using 20%",
+         GRP = FALSE,
+         SAVE = "outputs/EPL_20_2019_efg_benth")
 
 
 #make a line plot of EPL Index using 2018 and 2014 timepoints - request Natasha to impve this or add to package.
