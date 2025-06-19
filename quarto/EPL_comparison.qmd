@@ -105,7 +105,9 @@ year <- "2023"
 
 mpa_fl <- "^SANBI_PA_2023Q4_July2024.shp$"
 
-cnd_fl <- paste0("condition_mpa_", year, ".csv")
+cnd_fl <- paste0("benth_eco_condition_index_", year, ".csv")
+
+pel_cnd_fl <- paste0("pel_eco_condition_index_", year, ".csv")
 
 
 #cnd_fl <- paste0("ecosystem_condition_index_", year, ".csv")
@@ -124,7 +126,9 @@ These condition classes were cross tabulated with the National Marine Ecosystem 
 #| include: false
 #Add condition data  (note all LC products use  WGS84 Albers Equal Area, central meridian = 25; std parallel1 = -24; std parallel2 = -33). Use Tif version as this is processed faster by R terra.
 
-cnd_mpa <- st_read(list.files(path="data", pattern=cnd_fl, recursive = T, full.names = T)[1]) 
+cnd <- st_read(list.files(path="data", pattern=cnd_fl, recursive = T, full.names = T)[1]) 
+
+pel_cnd <- st_read(list.files(path="data", pattern=pel_cnd_fl, recursive = T, full.names = T)[1])
 
 # add ecosysetm map
 ##connect to database
@@ -166,7 +170,7 @@ check <- as.data.frame(st_is_valid(mpa, reason=T))
 
 ### Data preparation:
 
-Transform the CRS to match the ecosystem map. For both the ecosystem map and MPA layer the polygons of each ecosystem and protected area were combined together into multipolygons to simplify the data. 
+The CRS of the MPA layer was transformed to that of the MEM. For both the ecosystem map and MPA layer the polygons of each ecosystem and protected area were combined together into multipolygons to simplify the data. 
 
 ```{r}
 #| message: false
@@ -282,7 +286,7 @@ EPL classes:
 
 #### Calculate EPL Benthic
 
-To compare results to the 2018 protection level assessment we compared the original 2018 assessment results **i)** to results of using the 2018 method on the new 2023 map (no changes) **ii)**, to results using the new 2023 map and increasing the targets by 10% each **iii)**, and then to results using the new 2023 map, increasing the targets by 10% each, and using the new condition adjusted method **iV)**.
+To compare results to the 2018 protection level assessment we compared the original 2018 assessment results **i)** to results of using the 2018 method on the new 2023 map (no changes) **ii)**, to results using the new 2023 map and increasing the targets by 30% each **iii)**, and then to results using the new 2023 map, increasing the targets by 30% each, and using the new condition adjusted method **iV)**.
 
 ```{r}
 #| message: false
@@ -291,63 +295,39 @@ To compare results to the 2018 protection level assessment we compared the origi
 ######################################################################################
 #### scale protection level based on condition
 #######################################################################################
-cnd <- read.csv(list.files(path="data", pattern=cnd_fl, recursive = T, full.names = T)[1]) %>% 
-  select(-X)%>% 
-  select(-n) %>% 
-  filter(condition != "NA") %>% 
-  pivot_wider(names_from = condition, values_from = perc)%>% 
-  mutate(total = sum(c_across(`1`:`4`), na.rm = T), .by = ecosystem_type) %>% 
-  mutate(across(everything(), .fns = ~replace_na(.,0)))
-
-
 eco_mpa_cnd <- cnd %>% 
-  right_join(eco_mpa_pro)%>% 
+  mutate(across(eco_extent_km2_2023:perc_in_mpa, ~as.numeric(.x))) %>%
   #
   #rename
   #
-  rename(natural = `1`,
-         mod_deg = `2`, 
-         sev_deg = `3`, 
-         vsev_deg = `4`) %>% 
+  mutate(condition = str_replace_all(condition, "2", "mod_deg_km2")) %>% 
+  mutate(condition = str_replace_all(condition, "1", "natural_km2")) %>% 
+  mutate(condition = str_replace_all(condition, "3", "sev_deg_km2")) %>% 
+  mutate(condition = str_replace_all(condition, "4", "vsev_deg_km2")) %>%
+  select(ecosystem_type, condition, mpa_cnd_km2) %>% 
+  pivot_wider(names_from = condition, values_from = mpa_cnd_km2) %>% 
+  mutate(across(everything(), .fns = ~replace_na(.,0))) %>% 
   #
-  #get the % of the whole within the mpa
+  #join with
   #
-  mutate(natural_in_mpa = natural*percent_protected,
-         mod_in_mpa =mod_deg*percent_protected,
-         sev_in_mpa =sev_deg*percent_protected ) %>% 
-  #
-  #scale each condition percent by its %degradation score light
-  #
-  mutate(natural_light = natural,
-         mod_deg_light = mod_deg*0.5,
-         sev_deg_light = sev_deg*0.3,
-         v_sev_deg_light = vsev_deg*0.1) %>% 
-  #
-  #get the total percentage
-  #
-  mutate(light_perc = sum(c_across(natural_light:v_sev_deg_light), na.rm = T), 
-         .by = ecosystem_type) %>% 
-  #
-  #get new protection level
-  #
-  mutate(perc_pro_light = percent_protected*light_perc) %>% 
-  #
-  #scale each condition percent by its %degradation score medium 
-  #
-  mutate(natural_med = natural,
-         mod_deg_med = mod_deg*0.4,
-         sev_deg_med = sev_deg*0.2,
-         v_sev_deg_med = vsev_deg*0.05) %>% 
-  #
-  #get the total percentage
-  #
-  mutate(med_perc = sum(c_across(natural_med:v_sev_deg_med), na.rm = T), 
-         .by = ecosystem_type) %>% 
-  #
-  #get new protection level
-  #
-  mutate(perc_pro_med = percent_protected*med_perc)
-
+  right_join(eco_mpa_pro) %>% 
+  
+  mutate(natural_in_mpa = (natural_km2/eco_extent_km2)*100) %>% 
+  
+  mutate(perc_pro_light = 
+           (natural_km2/eco_extent_km2)*100 +
+          ((mod_deg_km2*0.5)/eco_extent_km2)*100 +
+          ((sev_deg_km2*0.3)/eco_extent_km2)*100 +
+           ((vsev_deg_km2*0.1)/eco_extent_km2)*100
+    ) %>% 
+  mutate(perc_pro_med = 
+           (natural_km2/eco_extent_km2)*100 +
+          ((mod_deg_km2*0.4)/eco_extent_km2)*100 +
+          ((sev_deg_km2*0.2)/eco_extent_km2)*100 +
+           ((vsev_deg_km2*0.05)/eco_extent_km2)*100
+    ) 
+  
+  
 write.csv(eco_mpa_cnd, paste0("outputs/pro_level_", year, ".csv"))
 
 
@@ -410,35 +390,35 @@ eco_mpa_cnd_2023 <- pro_2023 %>%
       perc_pro_med <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
     )) %>% 
   
-  
-  ### based on the Laras method (heavy)
-  mutate(
-    pro_lvl_lara = case_when(
-      natural_in_mpa >= 30  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
-      (natural_in_mpa+mod_in_mpa) >= 20 ~ "Moderately Protected",
-      (natural_in_mpa+mod_in_mpa+sev_in_mpa) > 0.2 ~ "Poorly Protected",
-      (natural_in_mpa+mod_in_mpa+sev_in_mpa) <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
-    )) %>% 
-  
-  
-  ### based on the Lindas method (heavy)
-  mutate(
-    pro_lvl_linda = case_when(
-      natural_in_mpa >= 30  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
-      (natural_in_mpa+mod_in_mpa) >= 20 ~ "Moderately Protected",
-      (natural_in_mpa+mod_in_mpa) > 0.2 ~ "Poorly Protected",
-      (natural_in_mpa+mod_in_mpa) <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
-    )) %>% 
-  
-  
-  ### based on the freshwater method (heavy)
-  mutate(
-    pro_lvl_fw = case_when(
-      natural_in_mpa >= 30  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
-      (natural_in_mpa) >= 20 ~ "Moderately Protected",
-      (natural_in_mpa) > 0.2 ~ "Poorly Protected",
-      (natural_in_mpa) <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
-    )) %>% 
+  # 
+  # ### based on the Laras method (heavy)
+  # mutate(
+  #   pro_lvl_lara = case_when(
+  #     natural_in_mpa >= 30  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+  #     (natural_in_mpa+mod_in_mpa) >= 20 ~ "Moderately Protected",
+  #     (natural_in_mpa+mod_in_mpa+sev_in_mpa) > 0.2 ~ "Poorly Protected",
+  #     (natural_in_mpa+mod_in_mpa+sev_in_mpa) <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
+  #   )) %>% 
+  # 
+  # 
+  # ### based on the Lindas method (heavy)
+  # mutate(
+  #   pro_lvl_linda = case_when(
+  #     natural_in_mpa >= 30  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+  #     (natural_in_mpa+mod_in_mpa) >= 20 ~ "Moderately Protected",
+  #     (natural_in_mpa+mod_in_mpa) > 0.2 ~ "Poorly Protected",
+  #     (natural_in_mpa+mod_in_mpa) <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
+  #   )) %>% 
+  # 
+  # 
+  # ### based on the freshwater method (heavy)
+  # mutate(
+  #   pro_lvl_fw = case_when(
+  #     natural_in_mpa >= 30  ~ "Well Protected", ## if protection is more than 20% classify the protection level category as "Well Protected"
+  #     (natural_in_mpa) >= 20 ~ "Moderately Protected",
+  #     (natural_in_mpa) > 0.2 ~ "Poorly Protected",
+  #     (natural_in_mpa) <= 0.2 ~ "Not Protected" ## if protection is less than or equal to 0.2% classify the protection level category as "Not Protected"
+  #   )) %>% 
   arrange(ecosystem_type) %>% 
   
   ##see how many increased and how many decreased
@@ -469,28 +449,28 @@ eco_mpa_cnd_2023 <- pro_2023 %>%
     str_detect(pro_lvl_tash_med, "Poorly Protected") ~ 2,
     str_detect(pro_lvl_tash_med, "Not Protected") ~ 1,
     TRUE ~ 0  # otherwise, Least Concern
-  )) %>% 
-  mutate(level_lara = case_when(
-    str_detect(pro_lvl_lara, "Well Protected") ~ 4, 
-    str_detect(pro_lvl_lara, "Moderately Protected") ~ 3, 
-    str_detect(pro_lvl_lara, "Poorly Protected") ~ 2,
-    str_detect(pro_lvl_lara, "Not Protected") ~ 1,
-    TRUE ~ 0  # otherwise, Least Concern
-  )) %>% 
-  mutate(level_linda = case_when(
-    str_detect(pro_lvl_linda, "Well Protected") ~ 4, 
-    str_detect(pro_lvl_linda, "Moderately Protected") ~ 3, 
-    str_detect(pro_lvl_linda, "Poorly Protected") ~ 2,
-    str_detect(pro_lvl_linda, "Not Protected") ~ 1,
-    TRUE ~ 0  # otherwise, Least Concern
-  )) %>%  
-  mutate(level_fw = case_when(
-    str_detect(pro_lvl_fw, "Well Protected") ~ 4, 
-    str_detect(pro_lvl_fw, "Moderately Protected") ~ 3, 
-    str_detect(pro_lvl_fw, "Poorly Protected") ~ 2,
-    str_detect(pro_lvl_fw, "Not Protected") ~ 1,
-    TRUE ~ 0  # otherwise, Least Concern
-  )) %>% 
+  )) %>%
+  # mutate(level_lara = case_when(
+  #   str_detect(pro_lvl_lara, "Well Protected") ~ 4, 
+  #   str_detect(pro_lvl_lara, "Moderately Protected") ~ 3, 
+  #   str_detect(pro_lvl_lara, "Poorly Protected") ~ 2,
+  #   str_detect(pro_lvl_lara, "Not Protected") ~ 1,
+  #   TRUE ~ 0  # otherwise, Least Concern
+  # )) %>% 
+  # mutate(level_linda = case_when(
+  #   str_detect(pro_lvl_linda, "Well Protected") ~ 4, 
+  #   str_detect(pro_lvl_linda, "Moderately Protected") ~ 3, 
+  #   str_detect(pro_lvl_linda, "Poorly Protected") ~ 2,
+  #   str_detect(pro_lvl_linda, "Not Protected") ~ 1,
+  #   TRUE ~ 0  # otherwise, Least Concern
+  # )) %>%  
+  # mutate(level_fw = case_when(
+  #   str_detect(pro_lvl_fw, "Well Protected") ~ 4, 
+  #   str_detect(pro_lvl_fw, "Moderately Protected") ~ 3, 
+  #   str_detect(pro_lvl_fw, "Poorly Protected") ~ 2,
+  #   str_detect(pro_lvl_fw, "Not Protected") ~ 1,
+  #   TRUE ~ 0  # otherwise, Least Concern
+  # )) %>% 
   
   mutate(difference_2019_30_20 = if_else(level_2019_20 != level_2019_30, 
                               if_else(level_2019_20 < level_2019_30, "increase", "decrease"), 
@@ -502,86 +482,91 @@ eco_mpa_cnd_2023 <- pro_2023 %>%
   
   mutate(difference_2019_tash_med = if_else(level_2019_30 != level_tash_med, 
                               if_else(level_2019_30 < level_tash_med, "increase", "decrease"), 
-                              "same")) %>% 
-  
-  mutate(difference_2019_lara = if_else(level_2019_30 != level_lara, 
-                              if_else(level_2019_30 < level_lara, "increase", "decrease"), 
-                              "same"))%>% 
-  
-  mutate(difference_2019_linda = if_else(level_2019_30 != level_linda, 
-                              if_else(level_2019_30 < level_linda, "increase", "decrease"), 
-                              "same"))%>% 
-  
-  mutate(difference_2019_fw = if_else(level_2019_30 != level_fw, 
-                              if_else(level_2019_30 < level_fw, "increase", "decrease"), 
                               "same"))
+  # %>% 
+  # 
+  # mutate(difference_2019_lara = if_else(level_2019_30 != level_lara, 
+  #                             if_else(level_2019_30 < level_lara, "increase", "decrease"), 
+  #                             "same"))%>% 
+  # 
+  # mutate(difference_2019_linda = if_else(level_2019_30 != level_linda, 
+  #                             if_else(level_2019_30 < level_linda, "increase", "decrease"), 
+  #                             "same"))%>% 
+  # 
+  # mutate(difference_2019_fw = if_else(level_2019_30 != level_fw, 
+  #                             if_else(level_2019_30 < level_fw, "increase", "decrease"), 
+  #                             "same"))
 
 EPL_tbl <- eco_mpa_cnd_2023 %>%
-  select(ecosystem_type, percent_protected, perc_pro_light, 
+  select(ecosystem_type, 
+         percent_protected, 
+         perc_pro_light, 
          perc_pro_med, 
          natural_in_mpa,
-         mod_in_mpa,
-         sev_in_mpa,
+         # mod_in_mpa,
+         # sev_in_mpa,
          pro_lvl_2019_20, 
-         pro_lvl_2019_30, pro_lvl_tash_light,
+         pro_lvl_2019_30, 
+         pro_lvl_tash_light,
          pro_lvl_tash_med,
-         pro_lvl_lara,
-         pro_lvl_linda,
-         pro_lvl_fw,
+         # pro_lvl_lara,
+         # pro_lvl_linda,
+         # pro_lvl_fw,
          difference_2019_30_20, 
          difference_2019_tash_light,
-         difference_2019_tash_med,
-         difference_2019_lara, 
-         difference_2019_linda, 
-         difference_2019_fw)
+         difference_2019_tash_med)
+         # ,
+         # difference_2019_lara, 
+         # difference_2019_linda, 
+         # difference_2019_fw)
   # select(-c(total,
   #           level_2019_20, level_2019_30, level_2025_30)) 
 
 write.csv(EPL_tbl, "outputs/EPL_tbl_12_06_2025_updated.csv")
   
-diff_30 <- EPL_tbl%>% 
-  filter(difference_2019_30_20 == "decrease") %>% 
-  arrange(pro_lvl_2019_20, ecosystem_type)%>% 
-  nbaR::nba_tbl_colr(COL = pro_lvl_2019_30) 
-
-diff_tash_light <- EPL_tbl%>% 
-  filter(difference_2019_tash_light == "decrease") %>% 
-  arrange(pro_lvl_2019_20, ecosystem_type) %>% 
-  nbaR::nba_tbl_colr(COL = pro_lvl_tash_light) 
-
-diff_tash_med <- EPL_tbl%>% 
-  filter(difference_2019_tash_med == "decrease") %>% 
-  arrange(pro_lvl_2019_20, ecosystem_type) %>% 
-  nbaR::nba_tbl_colr(COL = pro_lvl_tash_med) 
-
-diff_lara <- EPL_tbl%>% 
-  filter(difference_2019_lara == "decrease") %>% 
-  arrange(pro_lvl_2019_20, ecosystem_type) %>% 
-  nbaR::nba_tbl_colr(COL = pro_lvl_lara) 
-
-diff_all <- EPL_tbl%>% 
-  filter(difference_2019_lara == "decrease"&difference_2019_tash_med == "decrease"&difference_2019_tash_light == "decrease") %>% 
-  arrange(pro_lvl_2019_20, ecosystem_type) %>% 
-  nbaR::nba_tbl_colr(COL = difference_2019_tash_light) 
-
-diff_Light_med <- EPL_tbl%>% 
-  filter(difference_2019_lara != "decrease"&difference_2019_tash_med == "decrease"&difference_2019_tash_light == "decrease") %>% 
-  arrange(pro_lvl_2019_20, ecosystem_type) %>% 
-  nbaR::nba_tbl_colr(COL = difference_2019_tash_light) 
-
-diff_noLight_med <- EPL_tbl%>% 
-  filter(difference_2019_tash_med == "decrease"&difference_2019_tash_light != "decrease") %>% 
-  arrange(pro_lvl_2019_20, ecosystem_type)%>% 
-  nbaR::nba_tbl_colr(COL = difference_2019_tash_light) 
-
-diff_Lara_med <- EPL_tbl%>% 
-  filter(difference_2019_lara == "decrease"&difference_2019_tash_med == "decrease"&difference_2019_tash_light != "decrease") %>% 
-  arrange(pro_lvl_2019_20, ecosystem_type) %>% 
-  nbaR::nba_tbl_colr(COL = difference_2019_tash_med) 
-
-pro_lvl_tash_med <- EPL_tbl %>%
-  select(ecosystem_type, pro_lvl_tash_med, difference_2019_tash_med,
-         difference_2019_30_20)
+# diff_30 <- EPL_tbl%>% 
+#   filter(difference_2019_30_20 == "decrease") %>% 
+#   arrange(pro_lvl_2019_20, ecosystem_type)%>% 
+#   nbaR::nba_tbl_colr(COL = pro_lvl_2019_30) 
+# 
+# diff_tash_light <- EPL_tbl%>% 
+#   filter(difference_2019_tash_light == "decrease") %>% 
+#   arrange(pro_lvl_2019_20, ecosystem_type) %>% 
+#   nbaR::nba_tbl_colr(COL = pro_lvl_tash_light) 
+# 
+# diff_tash_med <- EPL_tbl%>% 
+#   filter(difference_2019_tash_med == "decrease") %>% 
+#   arrange(pro_lvl_2019_20, ecosystem_type) %>% 
+#   nbaR::nba_tbl_colr(COL = pro_lvl_tash_med) 
+# 
+# diff_lara <- EPL_tbl%>% 
+#   filter(difference_2019_lara == "decrease") %>% 
+#   arrange(pro_lvl_2019_20, ecosystem_type) %>% 
+#   nbaR::nba_tbl_colr(COL = pro_lvl_lara) 
+# 
+# diff_all <- EPL_tbl%>% 
+#   filter(difference_2019_lara == "decrease"&difference_2019_tash_med == "decrease"&difference_2019_tash_light == "decrease") %>% 
+#   arrange(pro_lvl_2019_20, ecosystem_type) %>% 
+#   nbaR::nba_tbl_colr(COL = difference_2019_tash_light) 
+# 
+# diff_Light_med <- EPL_tbl%>% 
+#   filter(difference_2019_lara != "decrease"&difference_2019_tash_med == "decrease"&difference_2019_tash_light == "decrease") %>% 
+#   arrange(pro_lvl_2019_20, ecosystem_type) %>% 
+#   nbaR::nba_tbl_colr(COL = difference_2019_tash_light) 
+# 
+# diff_noLight_med <- EPL_tbl%>% 
+#   filter(difference_2019_tash_med == "decrease"&difference_2019_tash_light != "decrease") %>% 
+#   arrange(pro_lvl_2019_20, ecosystem_type)%>% 
+#   nbaR::nba_tbl_colr(COL = difference_2019_tash_light) 
+# 
+# diff_Lara_med <- EPL_tbl%>% 
+#   filter(difference_2019_lara == "decrease"&difference_2019_tash_med == "decrease"&difference_2019_tash_light != "decrease") %>% 
+#   arrange(pro_lvl_2019_20, ecosystem_type) %>% 
+#   nbaR::nba_tbl_colr(COL = difference_2019_tash_med) 
+# 
+# pro_lvl_tash_med <- EPL_tbl %>%
+#   select(ecosystem_type, pro_lvl_tash_med, difference_2019_tash_med,
+#          difference_2019_30_20)
 ```
 
 ##All 37 ecosystems that decreased protection level due to the 30% increase
@@ -762,7 +747,8 @@ donut_2025 <- pro_level_benth_poly %>%
   select(ecosystem_type, `Well Protected`,
          `Moderately Protected`, 
          `Poorly Protected`,
-         `Not Protected`)
+         `Not Protected`) %>% 
+  ungroup()
 
 
 nbaR::nba_plot(DF = donut_2025,
